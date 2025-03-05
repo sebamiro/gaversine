@@ -1,0 +1,18 @@
+{
+	"object": {
+		"string": "Hola",
+		"number": 84,
+		"nested": {
+			"hola": "adios"
+		}
+	},
+	"number": 84,
+	"arr:ay": [
+		"numb",
+		{ "jamon": "queso" },
+		34,
+	],
+	"true": true,
+	"null": null,
+	"false": false
+}
