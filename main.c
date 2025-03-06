@@ -4,187 +4,136 @@
 #include <assert.h>
 #include <string.h>
 
-typedef int64_t		i64;
-typedef uint64_t	u64;
-typedef int32_t		i32;
-typedef uint32_t	u32;
-typedef uint8_t		u8;
+#include "type.h"
+#include "tokens.h"
 
-typedef enum type_token
+#include "Arena.c"
+#include "lex.c"
+
+typedef enum type_value
 {
-	Token_None = 0x0,
+	JSONValue_False,
+	JSONValue_Null,
+	JSONValue_True,
+	JSONValue_Object,
+	JSONValue_Array,
+	JSONValue_Number,
+	JSONValue_String,
+} type_value;
 
-	// structural
-	Token_BeginObject = 0x7B, // { begin-object
-	Token_EndObject = 0x7D, // } end-object
-	Token_BeginArray = 0x5B, // [ begin-array
-	Token_EndArray = 0x5D, // ] end-array
-	Token_NameSeparator = 0x3A, // : name-separator
-	Token_ValueSeparator = 0x2C, // , value-separator
-
-	// whitespace
-	Token_Space = 0x20,
-	Token_Tab = 0x09,
-	Token_Newline = 0x0A,
-	Token_CarrigeReturn = 0x0D,
-
-	// Values
-	Token_True,
-	Token_False,
-	Token_Null,
-	Token_String,
-	Token_Number,
-} type_token;
-
-u8 is_whitespace(char c)
+typedef struct JSON_string
 {
-	return c == Token_Space ||
-		c == Token_Tab ||
-		c == Token_Newline ||
-		c == Token_CarrigeReturn;
-}
+	u32		len;
+	char*	str;
+} JSON_string;
 
-typedef struct Arena
+typedef enum type_number
 {
-	u8*	buf;
-	u32 cur;
-	u32 len;
-} Arena;
-
-Arena Arena_init(u32 len)
+	Number_int,
+	Number_float,
+} type_number;
+typedef struct JSON_number
 {
-	Arena arena;
-	arena.buf = malloc(sizeof(u8) * len);
-	arena.len = len;
-	arena.cur = 0;
-	assert(arena.buf);
-	return arena;
-}
-
-void* Arena_alloc(Arena* arena, u32 size)
-{
-	assert(size + arena->cur < arena->len);
-	void* res = arena->buf + arena->cur;
-	arena->cur += size;
-	return res;
-}
-
-void Arena_deinit(Arena* arena)
-{
-	free(arena->buf);
-}
-
-typedef struct tokens
-{
-	type_token*	types;
-	u32*		starts;
-	u32			len;
-} tokens;
-
-tokens lex(Arena* arena, u8* file)
-{
-	u32 iter = 0;
-	void* buf = Arena_alloc(arena, sizeof(type_token) * 100 + sizeof(u32) * 100);
-
-	u32 current_token = 0;
-	tokens tokens;
-	tokens.len = 100;
-	tokens.types = (type_token*)buf;
-	tokens.starts = (u32*)(tokens.types + 100);
-
-	while(file[iter] != 0)
+	type_number	typ;
+	union
 	{
-		while (file[iter] != 0 && is_whitespace(file[iter]))
-		{
-			++iter;
-		}
-		if (file[iter] == '"')
-		{
-			++iter;
-			tokens.starts[current_token] = iter;
-			tokens.types[current_token] = Token_String;
-			++current_token;
-			while(file[iter] != 0 && file[iter] != '"')
-			{
-				++iter;
-			}
-		}
-		else if (file[iter] > 0x2F && file[iter] < 0x3A)
-		{
-			tokens.starts[current_token] = iter;
-			tokens.types[current_token] = Token_Number;
-			++current_token;
-			while(file[iter] != 0 && ((file[iter] > 0x2F && file[iter] < 0x3A) || file[iter] == '.'))
-			{
-				++iter;
-			}
-		}
-		else if ((file[iter] > 0x60 && file[iter] < 0x7B) || (file[iter] > 0x40 && file[iter] < 0x5b))
-		{
-			if (strncmp((char*)(file + iter), "true", 4) == 0)
-			{
-				tokens.starts[current_token] = iter;
-				tokens.types[current_token] = Token_True;
-				++current_token;
-				iter += 4;
-			}
-			else if (strncmp((char*)(file + iter), "false", 5) == 0)
-			{
-				tokens.starts[current_token] = iter;
-				tokens.types[current_token] = Token_False;
-				++current_token;
-				iter += 5;
-			}
-			else if (strncmp((char*)(file + iter), "null", 4) == 0)
-			{
-				tokens.starts[current_token] = iter;
-				tokens.types[current_token] = Token_Null;
-				++current_token;
-				iter += 5;
-			}
-			else
-			{
-				assert(0);
-			}
-		}
-		switch (file[iter])
-		{
-			case Token_BeginObject:
-				tokens.starts[current_token] = iter;
-				tokens.types[current_token] = Token_BeginObject;
-				++current_token;
-				break;
-			case Token_EndObject:
-				tokens.starts[current_token] = iter;
-				tokens.types[current_token] = Token_EndObject;
-				++current_token;
-				break;
-			case Token_BeginArray:
-				tokens.starts[current_token] = iter;
-				tokens.types[current_token] = Token_BeginArray;
-				++current_token;
-				break;
-			case Token_EndArray:
-				tokens.starts[current_token] = iter;
-				tokens.types[current_token] = Token_EndArray;
-				++current_token;
-				break;
-			case Token_NameSeparator:
-				tokens.starts[current_token] = iter;
-				tokens.types[current_token] = Token_NameSeparator;
-				++current_token;
-				break;
-			case Token_ValueSeparator:
-				tokens.starts[current_token] = iter;
-				tokens.types[current_token] = Token_ValueSeparator;
-				++current_token;
-				break;
-			default:
-				break;
-		}
-		++iter;
+		i64 num_int;
+		f64 num_float;
+	};
+} JSON_number;
+
+typedef struct json_value json_value;
+typedef struct JSON_array
+{
+	u32			len;
+	json_value* values;
+} JSON_array;
+
+typedef struct JSON_object
+{
+	u32				len;
+	JSON_string*	keys;
+	json_value*		values;
+} JSON_object;
+
+struct json_value
+{
+	type_value	typ;
+	union
+	{
+		JSON_string	string;
+		JSON_number	number;
+		JSON_array	array;
+		JSON_object	object;
+	};
+};
+
+typedef struct Scanner
+{
+	u32		cur;
+	tokens	tokens;
+	char*	buf;
+} Scanner;
+
+void Scanner_expect_type(Scanner* scanner, type_token expected)
+{
+	assert(expected == scanner->tokens.types[scanner->cur]);
+}
+
+type_token Scanner_peek_type(Scanner* scanner)
+{
+	return scanner->tokens.types[scanner->cur];
+}
+
+u32 Scanner_string_len(Scanner* scanner)
+{
+	assert(scanner->tokens.types[scanner->cur] == Token_String);
+	u32 len = scanner->tokens.starts[scanner->cur];
+
+	while (scanner->buf[len] != 0 && scanner->buf[len] != '"')
+	{
+		++len;
 	}
-	return tokens;
+	assert(scanner->buf[len] != 0);
+	return len - scanner->tokens.starts[scanner->cur];
+}
+
+JSON_string parse_JSON_string(Arena* arena, Scanner* scanner)
+{
+	JSON_string string;
+
+	string.len = Scanner_string_len(scanner);
+	string.str = (char*)Arena_alloc(arena, sizeof(char) * string.len);
+	strncpy(string.str, scanner->buf + scanner->tokens.starts[scanner->cur], string.len);
+	scanner->cur++;
+	return string;
+}
+
+JSON_object parse_JSON_object(Arena* arena, Scanner* scanner)
+{
+	Scanner_expect_type(scanner, Token_BeginObject);
+	scanner->cur++;
+	JSON_object object = {0};
+
+	while (Scanner_peek_type(scanner) != Token_EndObject)
+	{
+		if (Scanner_peek_type(scanner) == Token_String)
+		{
+			JSON_string key = parse_JSON_string(arena, scanner);
+			printf("(String [%d])<%s>\n", key.len, key.str);
+		}
+		scanner->cur++;
+	}
+	return object;
+}
+
+JSON_object parse(Arena* arena, char* buf, tokens tokens)
+{
+	Scanner scanner = {0};
+	scanner.buf = buf;
+	scanner.tokens = tokens;
+
+	return parse_JSON_object(arena, &scanner);
 }
 
 int main(int argc, char** argv)
@@ -197,11 +146,14 @@ int main(int argc, char** argv)
 		perror("file:");
 		return 1;
 	}
-	u8 file[4096];
+	char file[4096];
 	fread(file, 4096, 1, in);
 	fclose(in);
+
 	Arena	permarena = Arena_init(4096);
-	tokens tokens = lex(&permarena, file);
+	Arena	temparena = Arena_init(4096);
+	tokens	tokens = lex(&temparena, file);
+
 	for (u32 i = 0; i < tokens.len; ++i)
 	{
 		int iter = tokens.starts[i];
@@ -244,4 +196,8 @@ int main(int argc, char** argv)
 				break;
 		}
 	}
+	parse(&permarena, file, tokens);
+
+	Arena_deinit(&permarena);
+	Arena_deinit(&temparena);
 }
