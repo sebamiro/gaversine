@@ -98,6 +98,101 @@ u32 Scanner_string_len(Scanner* scanner)
 	return len - scanner->tokens.starts[scanner->cur];
 }
 
+u32 Scanner_object_len(Scanner* scanner)
+{
+	u32 i = scanner->cur;
+	u32 len = 0;
+	u32 in_object = 0;
+	u32 in_array = 0;
+
+	while (i < scanner->tokens.len)
+	{
+		switch (scanner->tokens.types[i])
+		{
+			case Token_BeginObject:
+				++in_object;
+				break;
+			case Token_EndObject:
+				if (in_object == 0 && in_array == 0)
+				{
+					return i != scanner->cur ? len + 1 : len;
+				}
+				--in_object;
+				break;
+			case Token_BeginArray:
+				++in_array;
+				break;
+			case Token_EndArray:
+				--in_array;
+				break;
+			case Token_ValueSeparator:
+				if (in_object == 0 && in_array == 0)
+				{
+					++len;
+				}
+				break;
+			default:
+				break;
+		}
+		++i;
+	}
+	assert(0);
+	return 0;
+}
+
+u32 Scanner_array_len(Scanner* scanner)
+{
+	u32 i = scanner->cur;
+	u32 len = 0;
+	u32 in_object = 0;
+	u32 in_array = 0;
+
+	while (i < scanner->tokens.len)
+	{
+		switch (scanner->tokens.types[i])
+		{
+			case Token_BeginObject:
+				++in_object;
+				break;
+			case Token_EndObject:
+				--in_object;
+				break;
+			case Token_BeginArray:
+				++in_array;
+				break;
+			case Token_EndArray:
+				if (in_object == 0 && in_array == 0)
+				{
+					return len != 0 ? len + 1 : len;
+				}
+				--in_array;
+				break;
+			case Token_ValueSeparator:
+				if (in_object == 0 && in_array == 0)
+				{
+					++len;
+				}
+				break;
+			default:
+				break;
+		}
+		++i;
+	}
+	assert(0);
+	return 0;
+}
+
+JSON_number parse_JSON_number(Scanner* scanner)
+{
+	Scanner_expect_type(scanner, Token_Number);
+	JSON_number number;
+
+	number.typ = Number_float;
+	number.num_float = strtod(scanner->buf + scanner->tokens.starts[scanner->cur], NULL);
+	scanner->cur++;
+	return number;
+}
+
 JSON_string parse_JSON_string(Arena* arena, Scanner* scanner)
 {
 	JSON_string string;
@@ -109,21 +204,117 @@ JSON_string parse_JSON_string(Arena* arena, Scanner* scanner)
 	return string;
 }
 
+json_value parse_json_value(Arena* arena, Scanner* scanner);
+JSON_array	parse_JSON_array(Arena* arena, Scanner* scanner)
+{
+	Scanner_expect_type(scanner, Token_BeginArray);
+	scanner->cur++;
+	JSON_array	array;
+	array.len = Scanner_array_len(scanner);
+	if (array.len > 0)
+	{
+		array.values = (json_value*)Arena_alloc(arena, sizeof(json_value) * array.len);
+	}
+	u32 current_element = 0;
+	while (Scanner_peek_type(scanner) != Token_EndArray)
+	{
+		array.values[current_element] = parse_json_value(arena, scanner);
+		++current_element;
+		if (Scanner_peek_type(scanner) == Token_ValueSeparator)
+		{
+			scanner->cur++;
+		}
+		else
+		{
+			Scanner_expect_type(scanner, Token_EndArray);
+		}
+	}
+	scanner->cur++;
+	return array;
+}
+
+JSON_object parse_JSON_object(Arena* arena, Scanner* scanner);
+json_value parse_json_value(Arena* arena, Scanner* scanner)
+{
+	json_value val;
+	printf("parse_json_value\n");
+	switch (Scanner_peek_type(scanner))
+	{
+		case Token_BeginObject:
+			printf("JSON_object\n");
+			JSON_object o = parse_JSON_object(arena, scanner);
+			val.typ = JSONValue_Object;
+			val.object = o;
+			break;
+		case Token_BeginArray:
+			printf("JSON_array\n");
+			JSON_array a = parse_JSON_array(arena, scanner);
+			val.typ = JSONValue_Array;
+			val.array = a;
+			break;
+		case Token_String:
+			printf("JSON_string\n");
+			JSON_string s = parse_JSON_string(arena, scanner);
+			val.typ = JSONValue_String;
+			val.string = s;
+			break;
+		case Token_Number:
+			printf("JSON_number\n");
+			JSON_number n = parse_JSON_number(scanner);
+			val.typ = JSONValue_Number;
+			val.number = n;
+			break;
+		case Token_True:
+			val.typ = JSONValue_True;
+			[[fallthrough]];
+		case Token_False:
+			val.typ = JSONValue_False;
+			[[fallthrough]];
+		case Token_Null:
+			printf("JSON_[true, false, null]\n");
+			val.typ = JSONValue_Null;
+			scanner->cur++;
+			break;
+		default:
+			assert(0);
+	}
+	return val;
+}
+
 JSON_object parse_JSON_object(Arena* arena, Scanner* scanner)
 {
 	Scanner_expect_type(scanner, Token_BeginObject);
 	scanner->cur++;
 	JSON_object object = {0};
+	object.len = Scanner_object_len(scanner);
+	if (object.len > 0)
+	{
+		void* buf = Arena_alloc(arena, sizeof(JSON_string) * object.len + sizeof(json_value) * object.len);
+		object.keys = (JSON_string*)buf;
+		object.values = (json_value*)(object.keys + object.len);
+	}
+	u32 current_member = 0;
 
 	while (Scanner_peek_type(scanner) != Token_EndObject)
 	{
-		if (Scanner_peek_type(scanner) == Token_String)
-		{
-			JSON_string key = parse_JSON_string(arena, scanner);
-			printf("(String [%d])<%s>\n", key.len, key.str);
-		}
+		Scanner_expect_type(scanner, Token_String);
+		JSON_string key = parse_JSON_string(arena, scanner);
+		Scanner_expect_type(scanner, Token_NameSeparator);
+		printf("[%d/%d] - (Key [%d])<%s>\n", current_member, object.len, key.len, key.str);
 		scanner->cur++;
+		object.keys[current_member] = key;
+		object.values[current_member] = parse_json_value(arena, scanner);
+		++current_member;
+		if (Scanner_peek_type(scanner) == Token_ValueSeparator)
+		{
+			scanner->cur++;
+		}
+		else
+		{
+			Scanner_expect_type(scanner, Token_EndObject);
+		}
 	}
+	scanner->cur++;
 	return object;
 }
 
