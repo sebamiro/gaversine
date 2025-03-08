@@ -1,5 +1,11 @@
-NAME=parser
+NAME=gaversine
+GENERATOR=generator
+
+CFLAGS=-std=c99 -Wall -Werror -Wextra
 
 all:
-	gcc -std=c99 -DDEBUG -Wall -Werror -Wextra main.c -o $(NAME)
+	gcc $(CFLAGS) main.c -o $(NAME)
+
+generator: generator.c
+	gcc $(CFLAGS) generator.c -o $(GENERATOR)
 

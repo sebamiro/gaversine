@@ -1,11 +1,11 @@
 typedef struct Arena
 {
 	u8*	buf;
-	u32 cur;
-	u32 len;
+	u64 cur;
+	u64 len;
 } Arena;
 
-Arena Arena_init(u32 len)
+Arena Arena_init(u64 len)
 {
 	Arena arena;
 	arena.buf = malloc(sizeof(u8) * len);
@@ -15,9 +15,13 @@ Arena Arena_init(u32 len)
 	return arena;
 }
 
-void* Arena_alloc(Arena* arena, u32 size)
+void* Arena_alloc(Arena* arena, u64 size)
 {
-	assert(size + arena->cur < arena->len);
+	if(size + arena->cur > arena->len)
+	{
+		arena->len = (arena->len + size) * 2;
+		arena->buf = realloc(arena->buf, arena->len);
+	}
 	void* res = arena->buf + arena->cur;
 	arena->cur += size;
 	return res;

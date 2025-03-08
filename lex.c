@@ -6,20 +6,26 @@ u8 is_whitespace(char c)
 		c == Token_CarrigeReturn;
 }
 
-tokens lex(Arena* arena, char* file)
+tokens lex(char* file)
 {
 	u32 iter = 0;
-	void* buf = Arena_alloc(arena, sizeof(type_token) * 100 + sizeof(u32) * 100);
 
 	u32 current_token = 0;
 
 	tokens tokens;
+	u32 alloc_size = 100;
 	tokens.len = 100;
-	tokens.types = (type_token*)buf;
-	tokens.starts = (u32*)(tokens.types + 100);
+	tokens.types = malloc(sizeof(type_token) * alloc_size);
+	tokens.starts = malloc(sizeof(u32) * alloc_size);
 
 	while(file[iter] != 0)
 	{
+		if (current_token >= alloc_size)
+		{
+			alloc_size *= 2;
+			tokens.types = realloc(tokens.types, sizeof(type_token) * alloc_size);
+			tokens.starts = realloc(tokens.starts, sizeof(u32) * alloc_size);
+		}
 		while (file[iter] != 0 && is_whitespace(file[iter]))
 		{
 			++iter;
@@ -41,11 +47,15 @@ tokens lex(Arena* arena, char* file)
 			assert(file[iter] != 0);
 			++iter;
 		}
-		else if (file[iter] > 0x2F && file[iter] < 0x3A)
+		else if (file[iter] == '-' || (file[iter] > 0x2F && file[iter] < 0x3A))
 		{
 			tokens.starts[current_token] = iter;
 			tokens.types[current_token] = Token_Number;
 			++current_token;
+			if (file[iter] == '-')
+			{
+				iter++;
+			}
 			while(file[iter] != 0 && ((file[iter] > 0x2F && file[iter] < 0x3A) || file[iter] == '.'))
 			{
 				++iter;
@@ -100,5 +110,6 @@ tokens lex(Arena* arena, char* file)
 			++iter;
 		}
 	}
+	tokens.len = current_token;
 	return tokens;
 }
