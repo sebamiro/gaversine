@@ -254,6 +254,8 @@ JSON_object parse_JSON_object(Arena* arena, JSON* json, Scanner* scanner)
 
 JSON parse(Arena* arena, char* buf, tokens tokens)
 {
+	TimeFunction_Start;
+
 	Scanner scanner = {0};
 	scanner.buf = buf;
 	scanner.tokens = tokens;
@@ -263,5 +265,7 @@ JSON parse(Arena* arena, char* buf, tokens tokens)
 	json.values = malloc(json.size * sizeof(JSON_value));
 
 	(void)parse_JSON_value(arena, &json, &scanner);
+
+	TimeFunction_End;
 	return json;
 }

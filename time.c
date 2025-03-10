@@ -1,7 +1,41 @@
 #include <x86intrin.h>
 #include <sys/time.h>
 
- u64 GetOSTimerFreq(void)
+#define Prfl_Start u64 prfl_start = ReadCPUTimer();
+
+const char* prfl_names[4096];
+u64	times[4096];
+u8	len_prfl = 0;
+
+#define TimeFunction_Start \
+	u64 index_func_prf = len_prfl++; \
+	prfl_names[index_func_prf] = __FUNCTION__; \
+	times[index_func_prf] = ReadCPUTimer();
+
+#define TimeFunction_End \
+	times[index_func_prf] = ReadCPUTimer() - times[index_func_prf];
+
+#define TimeBlock_Start(name) \
+	u64 index_prf_##name = len_prfl++; \
+	prfl_names[index_prf_##name] = #name; \
+	times[index_prf_##name] = ReadCPUTimer();
+
+#define TimeBlock_End(name) \
+	times[index_prf_##name] = ReadCPUTimer() - times[index_prf_##name];
+
+#define Prfl_End \
+	u64 prfl_elapsed = ReadCPUTimer() - prfl_start;\
+	u64 estimated_cpu_time_freq = EstimateCPUTimeFreq(); \
+	if (estimated_cpu_time_freq != 0) \
+	{ \
+		printf("Time: %ld (%ldms)\n", prfl_elapsed, (prfl_elapsed * 1000) / estimated_cpu_time_freq); \
+	} \
+	for (u8 i = 0; i < len_prfl; i++) \
+	{ \
+		printf("\t[%s]: %ld (%%%ld)\n", prfl_names[i], times[i], times[i] * 100 / prfl_elapsed); \
+	}
+
+u64 GetOSTimerFreq(void)
 {
 	return 1000000;
 }

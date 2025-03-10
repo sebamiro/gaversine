@@ -8,6 +8,8 @@ u8 is_whitespace(char c)
 
 tokens lex(char* file)
 {
+	TimeFunction_Start;
+
 	u32 iter = 0;
 
 	u32 current_token = 0;
@@ -111,5 +113,7 @@ tokens lex(char* file)
 		}
 	}
 	tokens.len = current_token;
+
+	TimeFunction_End;
 	return tokens;
 }

@@ -16,11 +16,11 @@
 
 int main(int argc, char** argv)
 {
+	Prfl_Start;
+
 	argc--;argv++;
 
-	u64 start = ReadCPUTimer();
-
-	u64 start_read = ReadCPUTimer();
+	TimeBlock_Start(Read);
 	FILE* in = fopen(*argv, "r");
 	if (!in)
 	{
@@ -50,20 +50,21 @@ int main(int argc, char** argv)
 		fread(check, sizeof(f64), len_check, in_check);
 		fclose(in_check);
 	}
-	u64 end_read = ReadCPUTimer();
+	TimeBlock_End(Read);
 
-
-	u64 start_parse = ReadCPUTimer();
 	Arena	permarena = Arena_init(4096);
 	tokens	tokens = lex(file);
 	JSON json = parse(&permarena, file, tokens);
+
+	TimeBlock_Start(CleanParse);
 	free(tokens.types);
 	free(tokens.starts);
 	free(file);
-	u64 end_parse = ReadCPUTimer();
+	TimeBlock_End(CleanParse);
 
 
-	u64 start_sum = ReadCPUTimer();
+
+	TimeBlock_Start(Sum);
 	assert(json.values[0].typ == JSONValue_Object);
 	assert(json.values[1].typ == JSONValue_String);
 	assert(json.values[2].typ == JSONValue_Array);
@@ -96,20 +97,12 @@ int main(int argc, char** argv)
 			fprintf(stdout, "TOTAL: %f != %f", total, check[array.len]);
 		}
 	}
-	u64 end_sum = ReadCPUTimer();
+	TimeBlock_End(Sum);
 
+	TimeBlock_Start(MiscEnd);
 	fprintf(stdout, "Avg: %f\n", total / array.len);
 	Arena_deinit(&permarena);
-	u64 end = ReadCPUTimer();
+	TimeBlock_End(MiscEnd);
 
-	u64 cpu_freq = EstimateCPUTimeFreq();
-	u64 elapsed = end - start;
-	u64 elapsed_read = end_read - start_read;
-	u64 elapsed_parse = end_parse - start_parse;
-	u64 elapsed_sum = end_sum - start_sum;
-
-	printf("TOTAL: %ld, (%lds)\n", elapsed, elapsed / cpu_freq);
-	printf("read: %ld (%%%ld)\n", elapsed_read, elapsed_read * 100 / elapsed);
-	printf("parse: %ld (%%%ld)\n", elapsed_parse, elapsed_parse * 100 / elapsed);
-	printf("sum: %ld (%%%ld)\n", elapsed_sum, elapsed_sum * 100 / elapsed);
+	Prfl_End;
 }
