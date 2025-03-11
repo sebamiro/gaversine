@@ -19,6 +19,10 @@ int main(int argc, char** argv)
 	Prfl_Start;
 
 	argc--;argv++;
+	if (argc < 1)
+	{
+		return 1;
+	}
 
 	TimeBlock_Start(Read);
 	FILE* in = fopen(*argv, "r");

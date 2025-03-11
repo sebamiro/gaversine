@@ -180,25 +180,33 @@ Handle_JSONValue parse_JSON_value(Arena* arena, JSON* json, Scanner* scanner)
 	switch (Scanner_peek_type(scanner))
 	{
 		case Token_BeginObject:
+		{
 			JSON_object o = parse_JSON_object(arena, json, scanner);
 			val.typ = JSONValue_Object;
 			val.object = o;
 			break;
+		}
 		case Token_BeginArray:
+		{
 			JSON_array a = parse_JSON_array(arena, json, scanner);
 			val.typ = JSONValue_Array;
 			val.array = a;
 			break;
+		}
 		case Token_String:
+		{
 			JSON_string s = parse_JSON_string(arena, scanner);
 			val.typ = JSONValue_String;
 			val.string = s;
 			break;
+		}
 		case Token_Number:
+		{
 			JSON_number n = parse_JSON_number(scanner);
 			val.typ = JSONValue_Number;
 			val.number = n;
 			break;
+		}
 		case Token_True:
 			val.typ = JSONValue_True;
 			[[fallthrough]];

@@ -1,6 +1,3 @@
-#include <x86intrin.h>
-#include <sys/time.h>
-
 #define Prfl_Start u64 prfl_start = ReadCPUTimer();
 
 const char* prfl_names[4096];
@@ -34,6 +31,10 @@ u8	len_prfl = 0;
 	{ \
 		printf("\t[%s]: %ld (%%%ld)\n", prfl_names[i], times[i], times[i] * 100 / prfl_elapsed); \
 	}
+
+#ifdef linux
+# include <x86intrin.h>
+# include <sys/time.h>
 
 u64 GetOSTimerFreq(void)
 {
@@ -80,3 +81,19 @@ static u64 EstimateCPUTimeFreq()
 	}
 	return cpu_freq;
 }
+
+#else
+# undef TimeFunction_Start
+# define TimeFunction_Start
+# undef TimeFunction_End
+# define TimeFunction_End
+# undef TimeBlock_Start
+# define TimeBlock_Start(...)
+# undef TimeBlock_End
+# define TimeBlock_End(...)
+# undef Prfl_Start
+# define Prfl_Start
+# undef Prfl_End
+# define Prfl_End
+#endif
+
