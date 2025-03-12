@@ -108,5 +108,5 @@ int main(int argc, char** argv)
 	Arena_deinit(&permarena);
 	TimeBlock_End(MiscEnd);
 
-	Prfl_End;
+	Prfl_End();
 }
