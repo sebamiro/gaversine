@@ -32,7 +32,7 @@ u8	len_prfl = 0;
 		printf("\t[%s]: %ld (%%%ld)\n", prfl_names[i], times[i], times[i] * 100 / prfl_elapsed); \
 	}
 
-#ifdef linux
+#ifdef __linux__
 # include <x86intrin.h>
 # include <sys/time.h>
 
