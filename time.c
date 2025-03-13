@@ -1,6 +1,25 @@
 
 #ifdef __linux__
 # include <x86intrin.h>
+#else
+// SPDX-License-Identifier: GPL-2.0
+u64 __rdtsc(void)
+{
+    u64 val;
+
+    /*
+     * According to ARM DDI 0487F.c, from Armv8.0 to Armv8.5 inclusive, the
+     * system counter is at least 56 bits wide; from Armv8.6, the counter
+     * must be 64 bits wide.  So the system counter could be less than 64
+     * bits wide and it is attributed with the flag 'cap_user_time_short'
+     * is true.
+     */
+    __asm volatile("mrs %0, cntvct_el0" : "=r" (val));
+
+    return val;
+}
+#endif
+
 # include <sys/time.h>
 
 #define ArrayCount(x) ((sizeof(x)/sizeof(0[x])) / ((u64)(!(sizeof(x) % sizeof(0[x])))))
@@ -53,8 +72,8 @@ static u64 EstimateCPUTimeFreq()
 
 typedef struct Prfl_Anchor
 {
-	u64			tsc_elapsed;
-	u64 		tsc_children_elapsed;
+	u64			tsc_inclusive;
+	u64 		tsc_exclusive;
 	u64 		hit_count;
 	const char*	label;
 } Prfl_Anchor;
@@ -73,6 +92,7 @@ typedef struct Prfl_Block
 	u32			index_anchor;
 	u32 		index_parent_anchor;
 	u64 		tsc_start;
+	u64 		tsc_old_inclusive;
 	const char*	label;
 } Prfl_Block;
 
@@ -84,7 +104,10 @@ Prfl_Block timeBlockStart(const char* label, u32 index_anchor)
 	res.tsc_start = ReadCPUTimer();
 	res.index_anchor = index_anchor;
 	res.index_parent_anchor = Global_index_parent_anchor;
+
 	Global_index_parent_anchor = index_anchor;
+	Prfl_Anchor* anchor = Global_Profiler.anchors + index_anchor;
+	res.tsc_old_inclusive = anchor->tsc_inclusive;
 	return res;
 }
 
@@ -96,22 +119,27 @@ void	timeBlockEnd(Prfl_Block* block)
 	Prfl_Anchor* anchor = Global_Profiler.anchors + block->index_anchor;
 	Prfl_Anchor* parent = Global_Profiler.anchors + block->index_parent_anchor;
 
-	anchor->tsc_elapsed = tsc_elapsed;
-	parent->tsc_children_elapsed += tsc_elapsed;
+	parent->tsc_exclusive -= tsc_elapsed;
+	anchor->tsc_exclusive += tsc_elapsed;
+	anchor->tsc_inclusive = block->tsc_old_inclusive + tsc_elapsed;
 	++anchor->hit_count;
 	anchor->label = block->label;
 }
 
-#define NameConcat2(A, B) A##B
-#define NameConcat(A, B) NameConcat2(A, B)
 #define Prfl_Start Global_Profiler.tsc_start = ReadCPUTimer();
 
+#define NameConcat2(A, B) A##B
+#define NameConcat(A, B) NameConcat2(A, B)
 
-#define TimeBlock_Start(name) Prfl_Block NameConcat(block, name) = timeBlockStart(#name, __COUNTER__ + 1);
-#define TimeBlock_End(name) timeBlockEnd(&NameConcat(block, name));
+#define TimeBlock_Start(name) \
+	Prfl_Block block_##name = timeBlockStart(#name, __COUNTER__ + 1);
+#define TimeBlock_End(name) \
+	timeBlockEnd(&block_##name);
 
-#define TimeFunction_Start TimeBlock_Start(__FUNCTION__)
-#define TimeFunction_End TimeBlock_End(__FUNCTION__)
+#define TimeFunction_Start \
+	Prfl_Block block_func = timeBlockStart(__func__, __COUNTER__ + 1);
+#define TimeFunction_End \
+	timeBlockEnd(&block_func)
 
 static void Prfl_End()
 {
@@ -120,38 +148,22 @@ static void Prfl_End()
 	u64 elapsed_total = Global_Profiler.tsc_end - Global_Profiler.tsc_start;
 	if (cpu_freq != 0)
 	{
-		printf("\nTotal Time: %0.4fms (CPU freq %lu)\n", 1000.0 * (f64)elapsed_total / (f64)cpu_freq, cpu_freq);
+		printf("\nTotal Time: %0.4fms (CPU freq %llu)\n", 1000.0 * (f64)elapsed_total / (f64)cpu_freq, cpu_freq);
 	}
 	for (u32 index_anchor = 0; index_anchor < ArrayCount(Global_Profiler.anchors); ++index_anchor)
 	{
 		Prfl_Anchor* anchor = Global_Profiler.anchors + index_anchor;
-		if (anchor->tsc_elapsed > 0)
+		if (anchor->tsc_inclusive > 0)
 		{
-			u64 elapsed = anchor->tsc_elapsed - anchor->tsc_children_elapsed;
-			f64 percent = 100.0 * ((f64)elapsed / (f64)elapsed_total);
-			printf("\t[%s(%lu)]: %ld (%.2f%%", anchor->label, anchor->hit_count, elapsed, percent);
-			if (anchor->tsc_children_elapsed > 0)
+			f64 percent = 100.0 * ((f64)anchor->tsc_exclusive / (f64)elapsed_total);
+			printf("\t[%s(%llu)]: %llu (%.2f%%", anchor->label, anchor->hit_count, anchor->tsc_exclusive, percent);
+			if (anchor->tsc_exclusive != anchor->tsc_inclusive)
 			{
-				f64 percent_children = 100.0 * ((f64)anchor->tsc_children_elapsed / (f64)elapsed_total);
-				printf(", %.2f%%", percent_children);
+				f64 percent_children = 100.0 * ((f64)anchor->tsc_inclusive / (f64)elapsed_total);
+				printf(", %.2f%% w/children", percent_children);
 			}
 			printf(")\n");
 		}
 	}
 }
-
-#else
-# undef TimeFunction_Start
-# define TimeFunction_Start
-# undef TimeFunction_End
-# define TimeFunction_End
-# undef TimeBlock_Start
-# define TimeBlock_Start(...)
-# undef TimeBlock_End
-# define TimeBlock_End(...)
-# undef Prfl_Start
-# define Prfl_Start
-# undef Prfl_End
-# define Prfl_End()
-#endif
 
