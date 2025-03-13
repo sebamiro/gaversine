@@ -9,6 +9,8 @@
 #include "JSON.h"
 
 #include "time.c"
+#include "profiler.c"
+
 #include "Arena.c"
 #include "lex.c"
 #include "parse.c"
@@ -36,7 +38,7 @@ int main(int argc, char** argv)
 	TimeBandwidth_Start(Read, file_size);
 	char* file = malloc(file_size / sizeof(char));
 	rewind(in);
-	fread(file, sizeof(char), file_size, in);
+	fread(file, file_size, 1, in);
 	TimeBandwidth_End(Read);
 
 	f64*	check = NULL;
