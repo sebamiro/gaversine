@@ -24,7 +24,6 @@ int main(int argc, char** argv)
 		return 1;
 	}
 
-	TimeBlock_Start(Read);
 	FILE* in = fopen(*argv, "r");
 	if (!in)
 	{
@@ -33,9 +32,12 @@ int main(int argc, char** argv)
 	}
 	fseek(in, 0L, SEEK_END);
 	long file_size = ftell(in);
+
+	TimeBandwidth_Start(Read, file_size);
 	char* file = malloc(file_size / sizeof(char));
 	rewind(in);
 	fread(file, sizeof(char), file_size, in);
+	TimeBandwidth_End(Read);
 
 	f64*	check = NULL;
 	u32		len_check;
@@ -54,7 +56,6 @@ int main(int argc, char** argv)
 		fread(check, sizeof(f64), len_check, in_check);
 		fclose(in_check);
 	}
-	TimeBlock_End(Read);
 
 	Arena	permarena = Arena_init(4096);
 	tokens	tokens = lex(file);
@@ -68,12 +69,12 @@ int main(int argc, char** argv)
 
 
 
-	TimeBlock_Start(Sum);
 	assert(json.values[0].typ == JSONValue_Object);
 	assert(json.values[1].typ == JSONValue_String);
 	assert(json.values[2].typ == JSONValue_Array);
 	JSON_array array = json.values[2].array;
 	f64 total = 0;
+	TimeBandwidth_Start(Sum, array.len * sizeof(JSON_value));
 	for (u32 i = 0; i < array.len; i++)
 	{
 		assert(json.values[array.values[i]].typ == JSONValue_Object);
@@ -101,7 +102,7 @@ int main(int argc, char** argv)
 			fprintf(stdout, "TOTAL: %f != %f", total, check[array.len]);
 		}
 	}
-	TimeBlock_End(Sum);
+	TimeBandwidth_End(Sum);
 
 	TimeBlock_Start(MiscEnd);
 	fprintf(stdout, "Avg: %f\n", total / array.len);
