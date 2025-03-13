@@ -170,8 +170,6 @@ JSON_array	parse_JSON_array(Arena* arena, JSON* json, Scanner* scanner)
 JSON_object parse_JSON_object(Arena* arena, JSON* json, Scanner* scanner);
 Handle_JSONValue parse_JSON_value(Arena* arena, JSON* json, Scanner* scanner)
 {
-	TimeFunction_Start;
-
 	JSON_value val;
 	u32 index_val = json->len++;
 	if (json->len >= json->size)
@@ -224,7 +222,6 @@ Handle_JSONValue parse_JSON_value(Arena* arena, JSON* json, Scanner* scanner)
 	}
 	json->values[index_val] = val;
 
-	TimeFunction_End;
 	return (Handle_JSONValue)(index_val);
 }
 

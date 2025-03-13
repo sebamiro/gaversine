@@ -3,7 +3,7 @@
 # include <x86intrin.h>
 #else
 // SPDX-License-Identifier: GPL-2.0
-u64 __rdtsc(void)
+static u64 __rdtsc(void)
 {
     u64 val;
 
@@ -21,8 +21,6 @@ u64 __rdtsc(void)
 #endif
 
 # include <sys/time.h>
-
-#define ArrayCount(x) ((sizeof(x)/sizeof(0[x])) / ((u64)(!(sizeof(x) % sizeof(0[x])))))
 
 u64 GetOSTimerFreq(void)
 {
@@ -70,6 +68,10 @@ static u64 EstimateCPUTimeFreq()
 	return cpu_freq;
 }
 
+#define Prfl_Start Global_Profiler.tsc_start = ReadCPUTimer();
+
+#ifdef PROFILE
+
 typedef struct Prfl_Anchor
 {
 	u64			tsc_inclusive;
@@ -96,7 +98,7 @@ typedef struct Prfl_Block
 	const char*	label;
 } Prfl_Block;
 
-Prfl_Block timeBlockStart(const char* label, u32 index_anchor)
+static Prfl_Block timeBlockStart(const char* label, u32 index_anchor)
 {
 	Prfl_Block	res;
 
@@ -111,7 +113,7 @@ Prfl_Block timeBlockStart(const char* label, u32 index_anchor)
 	return res;
 }
 
-void	timeBlockEnd(Prfl_Block* block)
+static void	timeBlockEnd(Prfl_Block* block)
 {
 	u64 tsc_elapsed = ReadCPUTimer() - block->tsc_start;
 	Global_index_parent_anchor = block->index_parent_anchor;
@@ -126,10 +128,6 @@ void	timeBlockEnd(Prfl_Block* block)
 	anchor->label = block->label;
 }
 
-#define Prfl_Start Global_Profiler.tsc_start = ReadCPUTimer();
-
-#define NameConcat2(A, B) A##B
-#define NameConcat(A, B) NameConcat2(A, B)
 
 #define TimeBlock_Start(name) \
 	Prfl_Block block_##name = timeBlockStart(#name, __COUNTER__ + 1);
@@ -166,4 +164,31 @@ static void Prfl_End()
 		}
 	}
 }
+
+#else
+
+typedef struct Profiler
+{
+	u64			tsc_start;
+	u64			tsc_end;
+} Profiler;
+static Profiler Global_Profiler;
+
+#define TimeBlock_Start(...)
+#define TimeBlock_End(...)
+#define TimeFunction_Start
+#define TimeFunction_End
+
+static void Prfl_End()
+{
+	Global_Profiler.tsc_end = ReadCPUTimer();
+	u64 cpu_freq = EstimateCPUTimeFreq();
+	u64 elapsed_total = Global_Profiler.tsc_end - Global_Profiler.tsc_start;
+	if (cpu_freq != 0)
+	{
+		printf("\nTotal Time: %0.4fms (CPU freq %llu)\n", 1000.0 * (f64)elapsed_total / (f64)cpu_freq, cpu_freq);
+	}
+}
+
+#endif
 
