@@ -1,3 +1,5 @@
+#include <sys/resource.h>
+
 #ifdef __linux__
 # include <x86intrin.h>
 #else
@@ -65,5 +67,13 @@ static u64 EstimateCPUTimeFreq()
 		cpu_freq = os_freq * cpu_elapsed / os_elapsed;
 	}
 	return cpu_freq;
+}
+
+u64 ReadOsPageFaults(void)
+{
+	struct rusage rusage;
+	getrusage(RUSAGE_SELF, &rusage);
+	u64 res = rusage.ru_minflt + rusage.ru_majflt;
+	return res;
 }
 

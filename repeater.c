@@ -23,6 +23,7 @@ typedef struct Repeater_tester
 	enum test_status status;
 	u64	time_accumulated_on_test;
 	u64	bytes_accumulated_on_test;
+	u64	pg_accumulated_on_test;
 
 	Repeater_result	results;
 } Repeater_tester;
@@ -30,11 +31,13 @@ typedef struct Repeater_tester
 void Repeater_begin_time(Repeater_tester* t)
 {
 	t->time_accumulated_on_test -= ReadCPUTimer();
+	t->pg_accumulated_on_test -= ReadOsPageFaults();
 }
 
 void Repeater_end_time(Repeater_tester* t)
 {
 	t->time_accumulated_on_test += ReadCPUTimer();
+	t->pg_accumulated_on_test += ReadOsPageFaults();
 }
 
 void Repeater_count_bytes(Repeater_tester* t, u64 count_bytes)
@@ -68,16 +71,27 @@ u8	Repeater_is_testing(Repeater_tester* t)
 		t->time_test_started = time_current;
 		results->time_min = time_elapsed;
 		print_time("Min", time_elapsed, t->cpu_freq, t->bytes_accumulated_on_test);
+		if (t->pg_accumulated_on_test)
+		{
+			printf(" PF: %0.4f (%0.4fk/fault)", (f64)t->pg_accumulated_on_test, (f64)t->bytes_accumulated_on_test / ((f64)t->pg_accumulated_on_test * 1024.0));
+		}
 		printf("\n");
 	}
 
 	t->time_accumulated_on_test = 0;
 	t->bytes_accumulated_on_test = 0;
+	t->pg_accumulated_on_test = 0;
 
 	if ((time_current - t->time_test_started) > t->time_try_for)
 	{
 		t->status = TestState_Completed;
-		printf("Completed: TODO PRINT RESULTS\n");
+		printf("\nCompleted %ld tests in %ld:\n", results->count_tests, results->time_total);
+		print_time("Min", results->time_min, t->cpu_freq, t->bytes_accumulated_on_test);
+		printf("\n");
+		print_time("Max", results->time_max, t->cpu_freq, t->bytes_accumulated_on_test);
+		printf("\n");
+		printf(" PF: %0.4f (%0.4fk/fault)", (f64)t->pg_accumulated_on_test, (f64)t->bytes_accumulated_on_test / ((f64)t->pg_accumulated_on_test * 1024.0));
+		printf("\n");
 	}
 	return t->status == TestState_Testing;
 }

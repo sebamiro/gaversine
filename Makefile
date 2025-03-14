@@ -15,3 +15,5 @@ profile: all
 generator: generator.c
 	gcc $(CFLAGS) generator.c $(LFLAGS) -o $(GENERATOR)
 
+repread: test_repeat_read.c repeater.c
+	gcc $(CFLAGS) test_repeat_read.c $(LFLAGS) -o $(@)
