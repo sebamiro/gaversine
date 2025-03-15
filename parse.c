@@ -167,7 +167,42 @@ json_array	ParseJsonArray(arena* arena, json* json, scanner* scanner)
 }
 
 
-json_object ParseJsonObject(arena* arena, json* json, scanner* scanner);
+json_object ParseJsonObject(arena* arena, json* json, scanner* scanner)
+{
+	Scanner_ExpectType(scanner, Token_BeginObject);
+	scanner->cur++;
+
+	u32 currentMember = 0;
+	json_object object = {0};
+	object.Len = Scanner_GetObjectLen(scanner);
+	if (object.Len > 0)
+	{
+		void* buf = malloc(sizeof(handle_json_value) * object.Len + sizeof(handle_json_value) * object.Len);
+		object.Keys = (handle_json_value*)buf;
+		object.Values = (handle_json_value*)(object.Keys + object.Len);
+	}
+
+	while (Scanner_PeekType(scanner) != Token_EndObject)
+	{
+		Scanner_ExpectType(scanner, Token_String);
+		object.Keys[currentMember] = ParseJsonValue(arena, json, scanner);
+		Scanner_ExpectType(scanner, Token_NameSeparator);
+		scanner->cur++;
+		object.Values[currentMember] = ParseJsonValue(arena, json, scanner);
+		++currentMember;
+		if (Scanner_PeekType(scanner) == Token_ValueSeparator)
+		{
+			scanner->cur++;
+		}
+		else
+		{
+			Scanner_ExpectType(scanner, Token_EndObject);
+		}
+	}
+	scanner->cur++;
+	return object;
+}
+
 handle_json_value ParseJsonValue(arena* arena, json* json, scanner* scanner)
 {
 	json_value val;
@@ -225,41 +260,6 @@ handle_json_value ParseJsonValue(arena* arena, json* json, scanner* scanner)
 	return (handle_json_value)(index_Val);
 }
 
-json_object ParseJsonObject(arena* arena, json* json, scanner* scanner)
-{
-	Scanner_ExpectType(scanner, Token_BeginObject);
-	scanner->cur++;
-
-	u32 currentMember = 0;
-	json_object object = {0};
-	object.Len = Scanner_GetObjectLen(scanner);
-	if (object.Len > 0)
-	{
-		void* buf = malloc(sizeof(handle_json_value) * object.Len + sizeof(handle_json_value) * object.Len);
-		object.Keys = (handle_json_value*)buf;
-		object.Values = (handle_json_value*)(object.Keys + object.Len);
-	}
-
-	while (Scanner_PeekType(scanner) != Token_EndObject)
-	{
-		Scanner_ExpectType(scanner, Token_String);
-		object.Keys[currentMember] = ParseJsonValue(arena, json, scanner);
-		Scanner_ExpectType(scanner, Token_NameSeparator);
-		scanner->cur++;
-		object.Values[currentMember] = ParseJsonValue(arena, json, scanner);
-		++currentMember;
-		if (Scanner_PeekType(scanner) == Token_ValueSeparator)
-		{
-			scanner->cur++;
-		}
-		else
-		{
-			Scanner_ExpectType(scanner, Token_EndObject);
-		}
-	}
-	scanner->cur++;
-	return object;
-}
 
 json Parse(arena* arena, char* buf, tokens tokens)
 {
@@ -269,8 +269,8 @@ json Parse(arena* arena, char* buf, tokens tokens)
 	scanner.buf = buf;
 	scanner.tokens = tokens;
 	json json;
-	json.Size = 100;
 	json.Len = 0;
+	json.Size = 100;
 	json.Values = malloc(json.Size * sizeof(json_value));
 
 	(void)ParseJsonValue(arena, &json, &scanner);

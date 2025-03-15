@@ -71,11 +71,11 @@ int main(int argc, char** argv)
 	assert(json.Values[0].Type == JSONValue_Object);
 	assert(json.Values[1].Type == JSONValue_String);
 	assert(json.Values[2].Type == JSONValue_Array);
-	json_array Array = json.Values[2].Array;
 
-	f64* pairs = malloc((size_t)Array.Len * 4 * sizeof(f64));
-	TimeBandwidth_Start(ConverPairs, Array.Len * sizeof(json_value));
-	for (u64 i, x = 0; i < Array.Len; i++, x += 4)
+	json_array Array = json.Values[2].Array;
+	f64 total = 0;
+	TimeBandwidth_Start(Sum, Array.Len * 4 * sizeof(f64));
+	for (u32 i = 0; i < Array.Len; i++)
 	{
 		assert(json.Values[Array.Values[i]].Type == JSONValue_Object);
 		json_object pair = json.Values[Array.Values[i]].Object;
@@ -84,21 +84,6 @@ int main(int argc, char** argv)
 		f64 y0 = json.Values[pair.Values[1]].Number.Float;
 		f64 x1 = json.Values[pair.Values[2]].Number.Float;
 		f64 y1 = json.Values[pair.Values[3]].Number.Float;
-		pairs[x] = x0;
-		pairs[x + 1] = y0;
-		pairs[x + 2] = x1;
-		pairs[x + 3] = y1;
-	}
-	TimeBandwidth_End(ConverPairs);
-
-	f64 total = 0;
-	TimeBandwidth_Start(Sum, Array.Len * 4 * sizeof(f64));
-	for (u32 i = 0; i < Array.Len * 4; i += 4)
-	{
-		f64 x0 = pairs[i];
-		f64 y0 = pairs[i + 1];
-		f64 x1 = pairs[i + 2];
-		f64 y1 = pairs[i + 3];
 
 		f64 haversine = ReferenceHaversine(x0, y0, x1, y1, 6372.8);
 		if (arrCheck)
@@ -127,6 +112,7 @@ int main(int argc, char** argv)
 	fprintf(stdout, "Avg: %f\n", total / Array.Len);
 	Arena_deinit(&permArena);
 	TimeBlock_End(MiscEnd);
+
 
 	Prfl_End();
 }

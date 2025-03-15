@@ -76,7 +76,7 @@ int main(int argc, char** argv)
 		}
 	}
 
-	fwrite(&total, sizeof(f64), 1, dataOut);
+	fwrite(&total, sizeof(total), 1, dataOut);
 	printf("\tAvg: %f\n", total / count);
 	fclose(out);
 	fclose(dataOut);

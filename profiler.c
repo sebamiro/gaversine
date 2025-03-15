@@ -8,6 +8,7 @@ typedef struct prfl_anchor
 	u64 		tscExclusive;
 	u64 		count_Hit;
 	u64 		count_ProcessedBytes;
+	u64 		count_PageFaults;
 	const char*	label;
 } prfl_anchor;
 
@@ -43,6 +44,7 @@ static prfl_block timeBlockStart(const char* label, u32 index_Anchor, u32 bytes_
 	prfl_anchor* anchor = Global_Profiler.anchors + index_Anchor;
 	res.tscOldInclusive = anchor->tscInclusive;
 	anchor->count_ProcessedBytes += bytes_count;
+	anchor->count_PageFaults -= ReadOsPageFaults();
 	return res;
 }
 
@@ -57,6 +59,7 @@ static void	timeBlockEnd(prfl_block* block)
 	parent->tscExclusive -= tscElapsed;
 	anchor->tscExclusive += tscElapsed;
 	anchor->tscInclusive = block->tscOldInclusive + tscElapsed;
+	anchor->count_PageFaults += ReadOsPageFaults();
 	++anchor->count_Hit;
 	anchor->label = block->label;
 }
@@ -110,6 +113,10 @@ static void Prfl_End()
 				f64 gps = bps / gigabyte;
 
 				printf("  %.3fmb at %.2fgb/s", megabytes, gps);
+				if (anchor->count_PageFaults)
+				{
+					printf(" PF: %0.4f (%0.4fk/fault)", (f64)anchor->count_PageFaults, (f64)anchor->count_ProcessedBytes / ((f64)anchor->count_PageFaults * 1024.0));
+				}
 			}
 
 			printf(")\n");
