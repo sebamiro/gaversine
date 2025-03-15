@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <string.h>
+#include <sys/stat.h>
 
 #include "type.h"
 #include "tokens.h"
@@ -11,7 +12,7 @@
 #include "time.c"
 #include "profiler.c"
 
-#include "Arena.c"
+#include "arena.c"
 #include "lex.c"
 #include "parse.c"
 #include "haversine.c"
@@ -26,89 +27,105 @@ int main(int argc, char** argv)
 		return 1;
 	}
 
-	FILE* in = fopen(*argv, "r");
-	if (!in)
+	struct stat stats;
+	if (stat(*argv, &stats))
 	{
 		perror("file:");
 		return 1;
 	}
-	fseek(in, 0L, SEEK_END);
-	long file_size = ftell(in);
 
-	TimeBandwidth_Start(Read, file_size);
-	char* file = malloc(file_size / sizeof(char));
-	rewind(in);
-	fread(file, file_size, 1, in);
+	u64 sizeFile = stats.st_size;
+	FILE* in = fopen(*argv, "r");
+	char* file = malloc(sizeFile);
+	TimeBandwidth_Start(Read, sizeFile);
+	fread(file, sizeFile, 1, in);
 	TimeBandwidth_End(Read);
+	fclose(in);
 
-	f64*	check = NULL;
-	u32		len_check;
+	f64*	arrCheck = NULL;
+	u32		sizeCheck;
 	if (argv[1])
 	{
-		FILE* in_check = fopen(argv[1], "r");
-		if (!in_check)
+		if (stat(argv[1], &stats))
 		{
-			perror("file:");
+			perror("check file:");
 			return 1;
 		}
-		fseek(in_check, 0L, SEEK_END);
-		len_check = (u32)(ftell(in_check));
-		check = malloc(len_check);
-		rewind(in_check);
-		fread(check, sizeof(f64), len_check, in_check);
-		fclose(in_check);
+		sizeCheck = stats.st_size / sizeof(f64);
+		arrCheck = malloc(sizeCheck * sizeof(f64));
+		FILE* inCheck = fopen(argv[1], "r");
+		fread(arrCheck, sizeCheck, sizeof(f64), inCheck);
+		fclose(inCheck);
 	}
 
-	Arena	permarena = Arena_init(4096);
-	tokens	tokens = lex(file);
-	JSON json = parse(&permarena, file, tokens);
+	arena	permArena = Arena_Init(4096);
+	tokens	tokens = Lex(file, sizeFile);
+	json json = Parse(&permArena, file, tokens);
 
 	TimeBlock_Start(CleanParse);
-	free(tokens.types);
-	free(tokens.starts);
+	free(tokens.Type);
+	free(tokens.Start);
 	free(file);
 	TimeBlock_End(CleanParse);
 
+	assert(json.Values[0].Type == JSONValue_Object);
+	assert(json.Values[1].Type == JSONValue_String);
+	assert(json.Values[2].Type == JSONValue_Array);
+	json_array Array = json.Values[2].Array;
 
-
-	assert(json.values[0].typ == JSONValue_Object);
-	assert(json.values[1].typ == JSONValue_String);
-	assert(json.values[2].typ == JSONValue_Array);
-	JSON_array array = json.values[2].array;
-	f64 total = 0;
-	TimeBandwidth_Start(Sum, array.len * sizeof(JSON_value));
-	for (u32 i = 0; i < array.len; i++)
+	f64* pairs = malloc((size_t)Array.Len * 4 * sizeof(f64));
+	TimeBandwidth_Start(ConverPairs, Array.Len * sizeof(json_value));
+	for (u64 i, x = 0; i < Array.Len; i++, x += 4)
 	{
-		assert(json.values[array.values[i]].typ == JSONValue_Object);
-		JSON_object pair = json.values[array.values[i]].object;
-		assert(pair.len == 4);
-		f64 x0 = json.values[pair.values[0]].number.num_float;
-		f64 y0 = json.values[pair.values[1]].number.num_float;
-		f64 x1 = json.values[pair.values[2]].number.num_float;
-		f64 y1 = json.values[pair.values[3]].number.num_float;
+		assert(json.Values[Array.Values[i]].Type == JSONValue_Object);
+		json_object pair = json.Values[Array.Values[i]].Object;
+		assert(pair.Len == 4);
+		f64 x0 = json.Values[pair.Values[0]].Number.Float;
+		f64 y0 = json.Values[pair.Values[1]].Number.Float;
+		f64 x1 = json.Values[pair.Values[2]].Number.Float;
+		f64 y1 = json.Values[pair.Values[3]].Number.Float;
+		pairs[x] = x0;
+		pairs[x + 1] = y0;
+		pairs[x + 2] = x1;
+		pairs[x + 3] = y1;
+	}
+	TimeBandwidth_End(ConverPairs);
+
+	f64 total = 0;
+	TimeBandwidth_Start(Sum, Array.Len * 4 * sizeof(f64));
+	for (u32 i = 0; i < Array.Len * 4; i += 4)
+	{
+		f64 x0 = pairs[i];
+		f64 y0 = pairs[i + 1];
+		f64 x1 = pairs[i + 2];
+		f64 y1 = pairs[i + 3];
 
 		f64 haversine = ReferenceHaversine(x0, y0, x1, y1, 6372.8);
-		if (check)
+		if (arrCheck)
 		{
-			if (haversine != check[i])
+			if (haversine != arrCheck[i])
 			{
-				fprintf(stdout, "[%d] %.16f != %.16f\n", i, haversine, check[i]);
+				fprintf(stdout, "[%d] %.16f != %.16f\n", i, haversine, arrCheck[i]);
 			}
 		}
 		total += haversine;
 	}
-	if (check)
+	if (arrCheck)
 	{
-		if (total != check[array.len])
+		if (total != arrCheck[Array.Len])
 		{
-			fprintf(stdout, "TOTAL: %f != %f", total, check[array.len]);
+			fprintf(stdout, "TOTAL: %f != %f", total, arrCheck[Array.Len]);
+		}
+		else
+		{
+			fprintf(stdout, "TOTAL: %f == %f", total, arrCheck[Array.Len]);
 		}
 	}
 	TimeBandwidth_End(Sum);
 
 	TimeBlock_Start(MiscEnd);
-	fprintf(stdout, "Avg: %f\n", total / array.len);
-	Arena_deinit(&permarena);
+	fprintf(stdout, "Avg: %f\n", total / Array.Len);
+	Arena_deinit(&permArena);
 	TimeBlock_End(MiscEnd);
 
 	Prfl_End();

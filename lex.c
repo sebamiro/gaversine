@@ -1,4 +1,4 @@
-u8 is_whitespace(char c)
+u8 IsWhitespace(char c)
 {
 	return c == Token_Space ||
 		c == Token_Tab ||
@@ -6,93 +6,83 @@ u8 is_whitespace(char c)
 		c == Token_CarrigeReturn;
 }
 
-tokens lex(char* file)
+tokens Lex(char* file, u64 size_File)
 {
 	TimeFunction_Start;
-
-	u32 iter = 0;
-
-	u32 current_token = 0;
+	const char* literalsStr[3] = { "true", "null", "false" };
+	const type_token literalsType[3] = { Token_True, Token_Null, Token_False };
 
 	tokens tokens;
-	u32 alloc_size = 100;
-	tokens.len = 100;
-	tokens.types = malloc(sizeof(type_token) * alloc_size);
-	tokens.starts = malloc(sizeof(u32) * alloc_size);
+	u64 iter_File, currentToken, allocSize;
+	iter_File = 0;
+	currentToken = 0;
+	allocSize = 100;
 
-	while(file[iter] != 0)
+	tokens.Len = 100;
+	tokens.Type = malloc(sizeof(type_token) * allocSize);
+	tokens.Start = malloc(sizeof(u64) * allocSize);
+
+	while(iter_File < size_File)
 	{
-		if (current_token >= alloc_size)
+		if (currentToken >= allocSize)
 		{
-			alloc_size *= 2;
-			tokens.types = realloc(tokens.types, sizeof(type_token) * alloc_size);
-			tokens.starts = realloc(tokens.starts, sizeof(u32) * alloc_size);
+			allocSize *= 2;
+			tokens.Type = realloc(tokens.Type, sizeof(type_token) * allocSize);
+			tokens.Start = realloc(tokens.Start, sizeof(u64) * allocSize);
 		}
-		while (file[iter] != 0 && is_whitespace(file[iter]))
+		while (file[iter_File] != 0 && IsWhitespace(file[iter_File]))
 		{
-			++iter;
+			++iter_File;
 		}
-		if (file[iter] == 0)
+		if (file[iter_File] == 0)
 		{
 			break;
 		}
-		if (file[iter] == '"')
+		if (file[iter_File] == '"')
 		{
-			++iter;
-			tokens.starts[current_token] = iter;
-			tokens.types[current_token] = Token_String;
-			++current_token;
-			while(file[iter] != 0 && file[iter] != '"')
+			++iter_File;
+			tokens.Start[currentToken] = iter_File;
+			tokens.Type[currentToken] = Token_String;
+			++currentToken;
+			while(file[iter_File] != 0 && file[iter_File] != '"')
 			{
-				++iter;
+				++iter_File;
 			}
-			assert(file[iter] != 0);
-			++iter;
+			assert(file[iter_File] != 0);
+			++iter_File;
 		}
-		else if (file[iter] == '-' || (file[iter] > 0x2F && file[iter] < 0x3A))
+		else if (file[iter_File] == '-' || (file[iter_File] > 0x2F && file[iter_File] < 0x3A))
 		{
-			tokens.starts[current_token] = iter;
-			tokens.types[current_token] = Token_Number;
-			++current_token;
-			if (file[iter] == '-')
+			tokens.Start[currentToken] = iter_File;
+			tokens.Type[currentToken] = Token_Number;
+			++currentToken;
+			if (file[iter_File] == '-')
 			{
-				iter++;
+				iter_File++;
 			}
-			while(file[iter] != 0 && ((file[iter] > 0x2F && file[iter] < 0x3A) || file[iter] == '.'))
+			while(file[iter_File] != 0 && ((file[iter_File] > 0x2F && file[iter_File] < 0x3A) || file[iter_File] == '.'))
 			{
-				++iter;
+				++iter_File;
 			}
-			assert(file[iter] != 0);
+			assert(file[iter_File] != 0);
 		}
-		else if ((file[iter] > 0x60 && file[iter] < 0x7B) || (file[iter] > 0x40 && file[iter] < 0x5b))
+		else if ((file[iter_File] > 0x60 && file[iter_File] < 0x7B) || (file[iter_File] > 0x40 && file[iter_File] < 0x5b))
 		{
-			if (strncmp((char*)(file + iter), "true", 4) == 0)
+			for (u64 iterLit = 0; iterLit < ArrayCount(literalsStr); ++iterLit)
 			{
-				tokens.starts[current_token] = iter;
-				tokens.types[current_token] = Token_True;
-				iter += 4;
+				if (strncmp((char*)(file + iter_File), literalsStr[iterLit], strlen(literalsStr[iterLit]) == 0))
+				{
+					tokens.Start[currentToken] = iter_File;
+					tokens.Type[currentToken] = literalsType[iterLit];
+					iter_File += strlen(literalsStr[iterLit]);
+					++currentToken;
+					break;
+				}
 			}
-			else if (strncmp((char*)(file + iter), "false", 5) == 0)
-			{
-				tokens.starts[current_token] = iter;
-				tokens.types[current_token] = Token_False;
-				iter += 5;
-			}
-			else if (strncmp((char*)(file + iter), "null", 4) == 0)
-			{
-				tokens.starts[current_token] = iter;
-				tokens.types[current_token] = Token_Null;
-				iter += 4;
-			}
-			else
-			{
-				assert(0);
-			}
-			++current_token;
 		}
 		else
 		{
-			switch (file[iter])
+			switch (file[iter_File])
 			{
 				case Token_BeginObject:
 				case Token_EndObject:
@@ -100,19 +90,19 @@ tokens lex(char* file)
 				case Token_EndArray:
 				case Token_NameSeparator:
 				case Token_ValueSeparator:
-					tokens.starts[current_token] = iter;
-					tokens.types[current_token] = file[iter];
-					++current_token;
+					tokens.Start[currentToken] = iter_File;
+					tokens.Type[currentToken] = file[iter_File];
+					++currentToken;
 					break;
 				default:
-					printf("[%d]=%c\n", iter, file[iter]);
+					printf("[%ld]=%c\n", iter_File, file[iter_File]);
 					assert(0);
 					break;
 			}
-			++iter;
+			++iter_File;
 		}
 	}
-	tokens.len = current_token;
+	tokens.Len = currentToken;
 
 	TimeFunction_End;
 	return tokens;

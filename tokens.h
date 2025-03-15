@@ -26,7 +26,7 @@ typedef enum type_token
 
 typedef struct tokens
 {
-	type_token*	types;
-	u32*		starts;
-	u32			len;
+	type_token*	Type;
+	u32*		Start;
+	u32			Len;
 } tokens;

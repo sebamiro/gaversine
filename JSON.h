@@ -1,4 +1,4 @@
-typedef enum JSON_type
+enum json_value_type
 {
 	JSONValue_False,
 	JSONValue_Null,
@@ -7,59 +7,60 @@ typedef enum JSON_type
 	JSONValue_Array,
 	JSONValue_Number,
 	JSONValue_String,
-} JSON_type;
+};
 
-typedef struct JSON_string
+typedef struct json_string
 {
-	u32		len;
-	char*	str;
-} JSON_string;
+	u32		Len;
+	char*	Str;
+} json_string;
 
-typedef enum type_number
+enum type_number
 {
 	Number_int,
 	Number_float,
-} type_number;
-typedef struct JSON_number
+};
+typedef struct json_number
 {
-	type_number	typ;
+	enum type_number	Type;
+
 	union
 	{
-		i64 num_int;
-		f64 num_float;
+		i64	Int;
+		f64 Float;
 	};
-} JSON_number;
+} json_number;
 
-typedef u32 Handle_JSONValue;
-typedef struct JSON_value JSON_value;
-typedef struct JSON_array
+typedef u32 handle_json_value;
+typedef struct json_value json_value;
+typedef struct json_array
 {
-	u32					len;
-	Handle_JSONValue*	values;
-} JSON_array;
+	u32					Len;
+	handle_json_value*	Values;
+} json_array;
 
-typedef struct JSON_object
+typedef struct json_object
 {
-	u32					len;
-	Handle_JSONValue*	keys;
-	Handle_JSONValue*	values;
-} JSON_object;
+	u32					Len;
+	handle_json_value*	Keys;
+	handle_json_value*	Values;
+} json_object;
 
-struct JSON_value
+struct json_value
 {
-	JSON_type	typ;
+	enum json_value_type	Type;
 	union
 	{
-		JSON_string	string;
-		JSON_number	number;
-		JSON_array	array;
-		JSON_object	object;
+		json_string	String;
+		json_number	Number;
+		json_array	Array;
+		json_object	Object;
 	};
 };
 
-typedef struct JSON
+typedef struct json
 {
-	JSON_value* values;
-	u32			len;
-	u32			size;
-} JSON;
+	json_value* Values;
+	u32			Len;
+	u32			Size;
+} json;

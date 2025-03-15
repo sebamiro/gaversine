@@ -6,91 +6,91 @@ enum test_status
 	TestState_Error,
 };
 
-typedef struct Repeater_result
+typedef struct repeater_result
 {
-	u64	count_tests;
-	u64	time_total;
-	u64	time_max;
-	u64	time_min;
-} Repeater_result;
+	u64	count_Tests;
+	u64	time_Total;
+	u64	time_Max;
+	u64	time_Min;
+} repeater_result;
 
-typedef struct Repeater_tester
+typedef struct repeater_tester
 {
-	u64	cpu_freq;
-	u64	time_try_for;
-	u64	time_test_started;
+	u64	cpuFreq;
+	u64	time_TryFor;
+	u64	time_TestStarted;
 
 	enum test_status status;
-	u64	time_accumulated_on_test;
-	u64	bytes_accumulated_on_test;
-	u64	pg_accumulated_on_test;
+	u64	time_AccumulatedOnTest;
+	u64	bytes_AccumulatedOnTest;
+	u64	pageFaults_AccumulatedOnTest;
 
-	Repeater_result	results;
-} Repeater_tester;
+	repeater_result	results;
+} repeater_tester;
 
-void Repeater_begin_time(Repeater_tester* t)
+void Repeater_BeginTime(repeater_tester* t)
 {
-	t->time_accumulated_on_test -= ReadCPUTimer();
-	t->pg_accumulated_on_test -= ReadOsPageFaults();
+	t->time_AccumulatedOnTest -= ReadCPUTimer();
+	t->pageFaults_AccumulatedOnTest -= ReadOsPageFaults();
 }
 
-void Repeater_end_time(Repeater_tester* t)
+void Repeater_EndTime(repeater_tester* t)
 {
-	t->time_accumulated_on_test += ReadCPUTimer();
-	t->pg_accumulated_on_test += ReadOsPageFaults();
+	t->time_AccumulatedOnTest += ReadCPUTimer();
+	t->pageFaults_AccumulatedOnTest += ReadOsPageFaults();
 }
 
-void Repeater_count_bytes(Repeater_tester* t, u64 count_bytes)
+void Repeater_CountBytes(repeater_tester* t, u64 count_bytes)
 {
-	t->bytes_accumulated_on_test += count_bytes;
+	t->bytes_AccumulatedOnTest += count_bytes;
 }
 
-void print_time(char const *Label, f64 CPUTime, u64 CPUTimerFreq, u64 ByteCount);
-u8	Repeater_is_testing(Repeater_tester* t)
+void printTime(char const *Label, f64 CPUTime, u64 CPUTimerFreq, u64 ByteCount);
+u8	Repeater_IsTesting(repeater_tester* t)
 {
 	if (t->status != TestState_Testing)
 	{
 		return 0;
 	}
-	if (t->time_accumulated_on_test == 0)
+	if (t->time_AccumulatedOnTest == 0)
 	{
 		return 1;
 	}
 
-	u64 time_current = ReadCPUTimer();
-	u64 time_elapsed = t->time_accumulated_on_test;
-	Repeater_result* results = &t->results;
-	++results->count_tests;
-	results->time_total += time_elapsed;
-	if (results->time_max < time_elapsed)
+	u64 time_Current = ReadCPUTimer();
+	u64 time_Elapsed = t->time_AccumulatedOnTest;
+	repeater_result* results = &t->results;
+	++results->count_Tests;
+	results->time_Total += time_Elapsed;
+	if (results->time_Max < time_Elapsed)
 	{
-		results->time_max = time_elapsed;
+		results->time_Max = time_Elapsed;
 	}
-	if (results->time_min > time_elapsed)
+	if (results->time_Min > time_Elapsed)
 	{
-		t->time_test_started = time_current;
-		results->time_min = time_elapsed;
-		print_time("Min", time_elapsed, t->cpu_freq, t->bytes_accumulated_on_test);
-		if (t->pg_accumulated_on_test)
+		t->time_TestStarted = time_Current;
+		results->time_Min = time_Elapsed;
+		printTime("Min", time_Elapsed, t->cpuFreq, t->bytes_AccumulatedOnTest);
+		if (t->pageFaults_AccumulatedOnTest)
 		{
-			printf(" PF: %0.4f (%0.4fk/fault)", (f64)t->pg_accumulated_on_test, (f64)t->bytes_accumulated_on_test / ((f64)t->pg_accumulated_on_test * 1024.0));
+			printf(" PF: %0.4f (%0.4fk/fault)", (f64)t->pageFaults_AccumulatedOnTest, (f64)t->bytes_AccumulatedOnTest / ((f64)t->pageFaults_AccumulatedOnTest * 1024.0));
 		}
 		printf("\n");
 	}
 
-	t->time_accumulated_on_test = 0;
-	t->bytes_accumulated_on_test = 0;
-	t->pg_accumulated_on_test = 0;
+	t->time_AccumulatedOnTest = 0;
+	t->bytes_AccumulatedOnTest = 0;
+	t->pageFaults_AccumulatedOnTest = 0;
 
-	if ((time_current - t->time_test_started) > t->time_try_for)
+	if ((time_Current - t->time_TestStarted) > t->time_TryFor)
 	{
 		t->status = TestState_Completed;
-		printf("\nCompleted %ld tests in %ld:\n", results->count_tests, results->time_total);
-		print_time("Min", results->time_min, t->cpu_freq, t->bytes_accumulated_on_test);
+		printf("\nCompleted %ld tests in %ld:\n", results->count_Tests, results->time_Total);
+		printTime("Min", results->time_Min, t->cpuFreq, t->bytes_AccumulatedOnTest);
 		printf("\n");
-		print_time("Max", results->time_max, t->cpu_freq, t->bytes_accumulated_on_test);
+		printTime("Max", results->time_Max, t->cpuFreq, t->bytes_AccumulatedOnTest);
 		printf("\n");
-		printf(" PF: %0.4f (%0.4fk/fault)", (f64)t->pg_accumulated_on_test, (f64)t->bytes_accumulated_on_test / ((f64)t->pg_accumulated_on_test * 1024.0));
+		printf(" PF: %0.4f (%0.4fk/fault)", (f64)t->pageFaults_AccumulatedOnTest, (f64)t->bytes_AccumulatedOnTest / ((f64)t->pageFaults_AccumulatedOnTest * 1024.0));
 		printf("\n");
 	}
 	return t->status == TestState_Testing;
@@ -107,7 +107,7 @@ static f64 SecondsFromCPUTime(f64 CPUTime, u64 CPUTimerFreq)
     return Result;
 }
 
-void print_time(char const *Label, f64 CPUTime, u64 CPUTimerFreq, u64 ByteCount)
+void printTime(char const *Label, f64 CPUTime, u64 CPUTimerFreq, u64 ByteCount)
 {
     printf("%s: %.0f", Label, CPUTime);
     if(CPUTimerFreq)

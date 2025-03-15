@@ -1,13 +1,13 @@
-typedef struct Arena
+typedef struct arena
 {
 	u8*	buf;
 	u64 cur;
 	u64 len;
-} Arena;
+} arena;
 
-Arena Arena_init(u64 len)
+arena Arena_Init(u64 len)
 {
-	Arena arena;
+	arena arena;
 	arena.buf = malloc(sizeof(u8) * len);
 	arena.len = len;
 	arena.cur = 0;
@@ -15,7 +15,7 @@ Arena Arena_init(u64 len)
 	return arena;
 }
 
-void* Arena_alloc(Arena* arena, u64 size)
+void* Arena_Alloc(arena* arena, u64 size)
 {
 	if(size + arena->cur > arena->len)
 	{
@@ -27,7 +27,7 @@ void* Arena_alloc(Arena* arena, u64 size)
 	return res;
 }
 
-void Arena_deinit(Arena* arena)
+void Arena_deinit(arena* arena)
 {
 	free(arena->buf);
 }
