@@ -58,13 +58,16 @@ int main(int argc, char** argv)
 		fclose(inCheck);
 	}
 
-	arena	permArena = Arena_Init(4096);
-	tokens	tokens = Lex(file, sizeFile);
+	arena	tempArena = Arena_Init(Size_DefaultRegion);
+	arena	permArena = Arena_Init(Size_DefaultRegion);
+
+	TimeBlock_Start(FullParse);
+	tokens	tokens = Lex(&tempArena, file, sizeFile);
 	json json = Parse(&permArena, file, tokens);
+	TimeBlock_End(FullParse);
 
 	TimeBlock_Start(CleanParse);
-	free(tokens.Type);
-	free(tokens.Start);
+	Arena_deinit(&tempArena);
 	free(file);
 	TimeBlock_End(CleanParse);
 

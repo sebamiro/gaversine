@@ -35,7 +35,7 @@ int main(int argc, char** argv)
 	snprintf(outName, 30, "gaversine_%s_%s.json", argv[0], argv[1]);
 	snprintf(dataOutName, 30, "gaversine_%s_%s.data", argv[0], argv[1]);
 
-	FILE* out, dataOut;
+	FILE* out, *dataOut;
 	out = fopen(outName, "w");
 	dataOut = fopen(dataOutName, "w");
 

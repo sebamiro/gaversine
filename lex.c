@@ -6,29 +6,26 @@ u8 IsWhitespace(char c)
 		c == Token_CarrigeReturn;
 }
 
-tokens Lex(char* file, u64 size_File)
+tokens Lex(arena* arena, char* file, u64 size_File)
 {
 	TimeFunction_Start;
 	const char* literalsStr[3] = { "true", "null", "false" };
 	const type_token literalsType[3] = { Token_True, Token_Null, Token_False };
 
-	tokens tokens;
 	u64 iter_File, currentToken, allocSize;
 	iter_File = 0;
 	currentToken = 0;
-	allocSize = 100;
+	allocSize = 4096;
 
-	tokens.Len = 100;
-	tokens.Type = malloc(sizeof(type_token) * allocSize);
-	tokens.Start = malloc(sizeof(u64) * allocSize);
-
+	type_token* type = malloc(allocSize * sizeof(type_token));
+	u64*		start = malloc(allocSize * sizeof(u64));
 	while(iter_File < size_File)
 	{
 		if (currentToken >= allocSize)
 		{
-			allocSize *= 2;
-			tokens.Type = realloc(tokens.Type, sizeof(type_token) * allocSize);
-			tokens.Start = realloc(tokens.Start, sizeof(u64) * allocSize);
+			allocSize = allocSize * 2;
+			type = realloc(type, sizeof(type_token) * allocSize);
+			start = realloc(start, sizeof(u64) * allocSize);
 		}
 		while (file[iter_File] != 0 && IsWhitespace(file[iter_File]))
 		{
@@ -41,8 +38,8 @@ tokens Lex(char* file, u64 size_File)
 		if (file[iter_File] == '"')
 		{
 			++iter_File;
-			tokens.Start[currentToken] = iter_File;
-			tokens.Type[currentToken] = Token_String;
+			start[currentToken] = iter_File;
+			type[currentToken] = Token_String;
 			++currentToken;
 			while(file[iter_File] != 0 && file[iter_File] != '"')
 			{
@@ -53,8 +50,8 @@ tokens Lex(char* file, u64 size_File)
 		}
 		else if (file[iter_File] == '-' || (file[iter_File] > 0x2F && file[iter_File] < 0x3A))
 		{
-			tokens.Start[currentToken] = iter_File;
-			tokens.Type[currentToken] = Token_Number;
+			start[currentToken] = iter_File;
+			type[currentToken] = Token_Number;
 			++currentToken;
 			if (file[iter_File] == '-')
 			{
@@ -72,8 +69,8 @@ tokens Lex(char* file, u64 size_File)
 			{
 				if (strncmp((char*)(file + iter_File), literalsStr[iterLit], strlen(literalsStr[iterLit]) == 0))
 				{
-					tokens.Start[currentToken] = iter_File;
-					tokens.Type[currentToken] = literalsType[iterLit];
+					start[currentToken] = iter_File;
+					type[currentToken] = literalsType[iterLit];
 					iter_File += strlen(literalsStr[iterLit]);
 					++currentToken;
 					break;
@@ -90,8 +87,8 @@ tokens Lex(char* file, u64 size_File)
 				case Token_EndArray:
 				case Token_NameSeparator:
 				case Token_ValueSeparator:
-					tokens.Start[currentToken] = iter_File;
-					tokens.Type[currentToken] = file[iter_File];
+					start[currentToken] = iter_File;
+					type[currentToken] = file[iter_File];
 					++currentToken;
 					break;
 				default:
@@ -102,7 +99,20 @@ tokens Lex(char* file, u64 size_File)
 			++iter_File;
 		}
 	}
+
+	tokens tokens;
 	tokens.Len = currentToken;
+	tokens.Type = Arena_Alloc(arena, sizeof(type_token) * currentToken);
+	tokens.Start = Arena_Alloc(arena, sizeof(u64) * currentToken);
+
+	for (u32 i = 0; i < currentToken; i++)
+	{
+		tokens.Type[i] = type[i];
+		tokens.Start[i] = start[i];
+	}
+
+	free(type);
+	free(start);
 
 	TimeFunction_End;
 	return tokens;
