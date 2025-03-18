@@ -145,7 +145,7 @@ json_array	ParseJsonArray(arena* arena, json* json, scanner* scanner)
 	array.Len = Scanner_array_len(scanner);
 	if (array.Len > 0)
 	{
-		array.Values = (handle_json_value*)malloc(sizeof(handle_json_value) * array.Len);
+		array.Values = (handle_json_value*)Arena_Alloc(arena, sizeof(handle_json_value) * array.Len);
 	}
 
 	while (Scanner_PeekType(scanner) != Token_EndArray)
@@ -177,7 +177,7 @@ json_object ParseJsonObject(arena* arena, json* json, scanner* scanner)
 	object.Len = Scanner_GetObjectLen(scanner);
 	if (object.Len > 0)
 	{
-		void* buf = malloc(sizeof(handle_json_value) * object.Len + sizeof(handle_json_value) * object.Len);
+		void* buf = Arena_Alloc(arena, sizeof(handle_json_value) * object.Len + sizeof(handle_json_value) * object.Len);
 		object.Keys = (handle_json_value*)buf;
 		object.Values = (handle_json_value*)(object.Keys + object.Len);
 	}
@@ -209,8 +209,9 @@ handle_json_value ParseJsonValue(arena* arena, json* json, scanner* scanner)
 	u32 index_Val = json->Len++;
 	if (json->Len >= json->Size)
 	{
-		json->Size *= 2;
-		json->Values = realloc(json->Values, sizeof(json_value) * json->Size);
+		u64 sizeRealloc = json->Size * 2;
+		json->Values = Arena_Realloc(arena, json->Values, sizeof(json_value) * json->Size, sizeRealloc * sizeof(json_value));
+		json->Size = sizeRealloc;
 	}
 	switch (Scanner_PeekType(scanner))
 	{
@@ -271,7 +272,7 @@ json Parse(arena* arena, char* buf, tokens tokens)
 	json json;
 	json.Len = 0;
 	json.Size = 100;
-	json.Values = malloc(json.Size * sizeof(json_value));
+	json.Values = Arena_Alloc(arena, json.Size * sizeof(json_value));
 
 	(void)ParseJsonValue(arena, &json, &scanner);
 
