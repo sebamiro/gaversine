@@ -210,7 +210,7 @@ handle_json_value ParseJsonValue(arena* arena, json* json, scanner* scanner)
 	if (json->Len >= json->Size)
 	{
 		u64 sizeRealloc = json->Size * 2;
-		json->Values = Arena_Realloc(arena, json->Values, sizeof(json_value) * json->Size, sizeRealloc * sizeof(json_value));
+		json->Values = realloc(json->Values, sizeRealloc * sizeof(json_value));
 		json->Size = sizeRealloc;
 	}
 	switch (Scanner_PeekType(scanner))
@@ -271,8 +271,8 @@ json Parse(arena* arena, char* buf, tokens tokens)
 	scanner.tokens = tokens;
 	json json;
 	json.Len = 0;
-	json.Size = 100;
-	json.Values = Arena_Alloc(arena, json.Size * sizeof(json_value));
+	json.Size = 4096;
+	json.Values = malloc(json.Size * sizeof(json_value));
 
 	(void)ParseJsonValue(arena, &json, &scanner);
 

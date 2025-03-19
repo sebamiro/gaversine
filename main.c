@@ -58,16 +58,16 @@ int main(int argc, char** argv)
 		fclose(inCheck);
 	}
 
-	arena	tempArena = Arena_Init(Size_DefaultRegion);
 	arena	permArena = Arena_Init(Size_DefaultRegion);
 
 	TimeBlock_Start(FullParse);
-	tokens	tokens = Lex(&tempArena, file, sizeFile);
+	tokens	tokens = Lex(file, sizeFile);
 	json json = Parse(&permArena, file, tokens);
 	TimeBlock_End(FullParse);
 
 	TimeBlock_Start(CleanParse);
-	Arena_deinit(&tempArena);
+	free(tokens.Start);
+	free(tokens.Type);
 	free(file);
 	TimeBlock_End(CleanParse);
 
@@ -114,6 +114,7 @@ int main(int argc, char** argv)
 	TimeBlock_Start(MiscEnd);
 	fprintf(stdout, "Avg: %f\n", total / Array.Len);
 	Arena_deinit(&permArena);
+	free(json.Values);
 	TimeBlock_End(MiscEnd);
 
 

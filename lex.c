@@ -6,7 +6,7 @@ u8 IsWhitespace(char c)
 		c == Token_CarrigeReturn;
 }
 
-tokens Lex(arena* arena, char* file, u32 size_File)
+tokens Lex(char* file, u32 size_File)
 {
 	TimeFunction_Start;
 	const char* literalsStr[3] = { "true", "null", "false" };
@@ -17,15 +17,15 @@ tokens Lex(arena* arena, char* file, u32 size_File)
 	currentToken = 0;
 	sizeAlloc = 4096;
 
-	type_token* type = Arena_Alloc(arena, sizeAlloc * sizeof(type_token));
-	u32*		start = Arena_Alloc(arena, sizeAlloc * sizeof(u32));
+	type_token* type = malloc(sizeAlloc * sizeof(type_token));
+	u32*		start = malloc(sizeAlloc * sizeof(u32));
 	while(iter_File < size_File)
 	{
 		if (currentToken >= sizeAlloc)
 		{
 			u32 sizeRealloc = sizeAlloc * 2;
-			type = Arena_Realloc(arena, type, sizeof(type_token) * sizeAlloc, sizeRealloc * sizeof(type_token));
-			start = Arena_Realloc(arena, start, sizeof(u32) * sizeAlloc, sizeof(u32) * sizeRealloc);
+			type = realloc(type, sizeof(type_token) * sizeRealloc);
+			start = realloc(start, sizeof(u32) * sizeRealloc);
 			sizeAlloc = sizeRealloc;
 		}
 		while (file[iter_File] != 0 && IsWhitespace(file[iter_File]))
