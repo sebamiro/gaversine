@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <sys/mman.h>
 
 #include "type.h"
 #include "tokens.h"
@@ -36,7 +37,7 @@ int main(int argc, char** argv)
 
 	u64 sizeFile = stats.st_size;
 	FILE* in = fopen(*argv, "r");
-	char* file = malloc(sizeFile);
+	char* file  = mmap(NULL, sizeFile, PROT_READ|PROT_WRITE, MAP_ANONYMOUS|MAP_PRIVATE|MAP_POPULATE, -1, 0);
 	TimeBandwidth_Start(Read, sizeFile);
 	fread(file, sizeFile, 1, in);
 	TimeBandwidth_End(Read);
@@ -68,7 +69,7 @@ int main(int argc, char** argv)
 	TimeBlock_Start(CleanParse);
 	free(tokens.Start);
 	free(tokens.Type);
-	free(file);
+	munmap(file, sizeFile);
 	TimeBlock_End(CleanParse);
 
 	assert(json.Values[0].Type == JSONValue_Object);
