@@ -22,24 +22,32 @@ int main(int argc, char** argv)
 {
 	Prfl_Start;
 
-	argc--;argv++;
+	argc--;
 	if (argc < 1)
 	{
+		fprintf(stderr, "USAGE: %s file [check]\n", *argv);
 		return 1;
 	}
+	argv++;
 
 	struct stat stats;
 	if (stat(*argv, &stats))
 	{
-		perror("file:");
+		perror("stat");
 		return 1;
 	}
 
 	u64 sizeFile = stats.st_size;
-	FILE* in = fopen(*argv, "r");
 	char* file  = mmap(NULL, sizeFile, PROT_READ|PROT_WRITE, MAP_ANONYMOUS|MAP_PRIVATE|MAP_POPULATE, -1, 0);
+	assert(file != MAP_FAILED);
+
+	FILE* in = fopen(*argv, "r");
 	TimeBandwidth_Start(Read, sizeFile);
-	fread(file, sizeFile, 1, in);
+	if (fread(file, sizeFile, 1, in) == 0)
+	{
+		perror("file");
+		return 1;
+	}
 	TimeBandwidth_End(Read);
 	fclose(in);
 
@@ -55,16 +63,20 @@ int main(int argc, char** argv)
 		sizeCheck = stats.st_size / sizeof(f64);
 		arrCheck = malloc(sizeCheck * sizeof(f64));
 		FILE* inCheck = fopen(argv[1], "r");
-		fread(arrCheck, sizeCheck, sizeof(f64), inCheck);
+		if (fread(arrCheck, sizeCheck, sizeof(f64), inCheck) == 0)
+		{
+			perror("file");
+			return 1;
+		}
 		fclose(inCheck);
 	}
 
 	arena	permArena = Arena_Init(Size_DefaultRegion);
 
-	TimeBlock_Start(FullParse);
+	TimeBandwidth_Start(FullParse, sizeFile);
 	tokens	tokens = Lex(file, sizeFile);
 	json json = Parse(&permArena, file, tokens);
-	TimeBlock_End(FullParse);
+	TimeBandwidth_End(FullParse);
 
 	TimeBlock_Start(CleanParse);
 	free(tokens.Start);
