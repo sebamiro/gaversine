@@ -13,8 +13,10 @@ all:
 	gcc $(CFLAGS) main.c $(LFLAGS) -o $(NAME)
 
 profile: CFLAGS += -DPROFILE
-
 profile: all
+
+debug: CFLAGS += -g
+debug: all
 
 generator: generator.c
 	gcc $(CFLAGS) generator.c $(LFLAGS) -o $(GENERATOR)
