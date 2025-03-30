@@ -3,117 +3,67 @@
 #include <sys/stat.h>
 #include <stdint.h>
 #include <unistd.h>
+#include <assert.h>
 #include <fcntl.h>
+#include <sys/mman.h>
 
 #include "type.h"
 
 #include "time.c"
 #include "repeater.c"
 
-
-void test_fread(repeater_tester* t, char* buf, char* file_name, long file_size)
+void test_mmap_full(repeater_tester* t, char* file_name, u64 sizeFile)
 {
+	u64* buf;
 	while (Repeater_IsTesting(t))
 	{
+		buf = mmap(NULL, sizeFile, PROT_READ|PROT_WRITE, MAP_ANONYMOUS|MAP_PRIVATE|MAP_POPULATE, -1, 0);
+		assert(buf != MAP_FAILED);
 		FILE* in = fopen(file_name, "r");
-		if (in)
+		if (!in)
 		{
-			if (!buf)
-			{
-				buf = malloc(file_size / sizeof(char));
-			}
-			Repeater_BeginTime(t);
-			fread(buf, file_size, 1, in);
-			Repeater_EndTime(t);
-			Repeater_CountBytes(t, file_size);
-			fclose(in);
-			free(buf);
-			buf = NULL;
+			perror("file");
+			return;
 		}
-	}
-}
-
-void test_read(repeater_tester* t, char* buf, char* file_name, long file_size)
-{
-	while (Repeater_IsTesting(t))
-	{
-		int in = open(file_name, O_RDONLY);
-		if (in > 0)
-		{
-			if (!buf)
-			{
-				buf = malloc(file_size / sizeof(char));
-			}
-			Repeater_BeginTime(t);
-			read(in, buf, file_size);
-			Repeater_EndTime(t);
-			Repeater_CountBytes(t, file_size);
-			close(in);
-			free(buf);
-			buf = NULL;
-		}
-	}
-}
-
-void test_buf(repeater_tester* t, char* buf, long file_size)
-{
-	while (Repeater_IsTesting(t))
-	{
 		Repeater_BeginTime(t);
-		for (u32 i = 0; i < file_size; i++)
+		fread(buf, sizeFile, 1, in);
+		Repeater_EndTime(t);
+		Repeater_CountBytes(t, sizeFile);
+		fclose(in);
+		munmap(buf, sizeFile);
+	}
+}
+
+
+
+
+
+void test_mmap_chunks(repeater_tester* t, char* file_name, u64 sizeChunk, u64 sizeFile)
+{
+	u64* buf;
+	while (Repeater_IsTesting(t))
+	{
+		buf = mmap(NULL, sizeChunk, PROT_READ|PROT_WRITE, MAP_ANONYMOUS|MAP_PRIVATE|MAP_POPULATE, -1, 0);
+		assert(buf != MAP_FAILED);
+		FILE* in = fopen(file_name, "r");
+		if (!in)
 		{
-			buf[i] = i;
+			perror("file");
+			return;
+		}
+		Repeater_BeginTime(t);
+		for (u64 i = 1; i * sizeChunk < sizeFile; i++)
+		{
+			fread(buf, sizeChunk, 1, in);
 		}
 		Repeater_EndTime(t);
-		Repeater_CountBytes(t, file_size);
+		Repeater_CountBytes(t, sizeFile);
+		fclose(in);
+		munmap(buf, sizeChunk);
 	}
 }
 
-void test_malloc_buf(repeater_tester* t, char* buf, long file_size)
-{
-	while (Repeater_IsTesting(t))
-	{
-		buf = malloc(file_size);
-		Repeater_BeginTime(t);
-		for (u32 i = 0; i < file_size; i++)
-		{
-			buf[i] = i;
-		}
-		Repeater_EndTime(t);
-		Repeater_CountBytes(t, file_size);
-		free(buf);
-	}
-}
 
-void test_buf_back(repeater_tester* t, char* buf, long file_size)
-{
-	while (Repeater_IsTesting(t))
-	{
-		Repeater_BeginTime(t);
-		for (u32 i = 0; i < file_size; i++)
-		{
-			buf[file_size - 1 - i] = i;
-		}
-		Repeater_EndTime(t);
-		Repeater_CountBytes(t, file_size);
-	}
-}
-
-void test_malloc_buf_back(repeater_tester* t, char* buf, long file_size)
-{
-	while (Repeater_IsTesting(t))
-	{
-		buf = malloc(file_size);
-		Repeater_BeginTime(t);
-		for (u32 i = 0; i < file_size; i++)
-		{
-			buf[file_size - 1 - i] = i;
-		}
-		Repeater_EndTime(t);
-		Repeater_CountBytes(t, file_size);
-		free(buf);
-	}
-}
 
 
 int main(int argc, char** argv)
@@ -126,34 +76,34 @@ int main(int argc, char** argv)
 
 	struct stat stats;
 	stat(*argv, &stats);
-	u64 file_size = stats.st_size;
-	char* buf = malloc(file_size / sizeof(char));
+	u64 sizeFile = stats.st_size;
 
 	repeater_tester	tester = {0};
 	while (1)
 	{
-		for (int i = 0; i < 4; i++)
+		for (int i = 0; i < 2; i++)
 		{
 			tester.cpuFreq = EstimateCPUTimeFreq();
 			tester.time_TryFor = 10 * tester.cpuFreq;
 			tester.time_TestStarted = ReadCPUTimer();
 			tester.status = TestState_Testing;
 			tester.results.time_Min = -1;
-			if (i == 0) {
-				printf("\n--- Rev Malloc Buf ---\n");
-				test_malloc_buf_back(&tester, NULL,  file_size);
+			if (i == 0)
+			{
+				printf("\n--- mmap full ---\n");
+				test_mmap_full(&tester, *argv, sizeFile);
 			}
-			else if (i == 1) {
-				printf("\n--- Rev Buf ---\n");
-				test_buf_back(&tester, buf, file_size);
-			}
-			else if (i == 2) {
-				printf("\n--- Buf ---\n");
-				test_buf(&tester, buf, file_size);
-			}
-			else if (i == 3) {
-				printf("\n--- Malloc Buf ---\n");
-				test_malloc_buf(&tester, NULL, file_size);
+			else {
+				for (u64 sizeChunk = 256*1024; sizeChunk < sizeFile; sizeChunk*=2)
+				{
+					tester.cpuFreq = EstimateCPUTimeFreq();
+					tester.time_TryFor = 10 * tester.cpuFreq;
+					tester.time_TestStarted = ReadCPUTimer();
+					tester.status = TestState_Testing;
+					tester.results.time_Min = -1;
+					printf("\n--- mmap chunk %ldmk ---\n", sizeChunk);
+					test_mmap_chunks(&tester, *argv,  sizeChunk, sizeFile);
+				}
 			}
 		}
 	}
