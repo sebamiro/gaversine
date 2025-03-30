@@ -28,6 +28,7 @@ tokens Lex(char* file, u32 size_File)
 			start = realloc(start, sizeof(u32) * sizeRealloc);
 			sizeAlloc = sizeRealloc;
 		}
+
 		while (file[iter_File] != 0 && IsWhitespace(file[iter_File]))
 		{
 			++iter_File;
@@ -36,68 +37,84 @@ tokens Lex(char* file, u32 size_File)
 		{
 			break;
 		}
-		if (file[iter_File] == '"')
+
+		switch (file[iter_File])
 		{
-			++iter_File;
-			start[currentToken] = iter_File;
-			type[currentToken] = Token_String;
-			++currentToken;
-			while(file[iter_File] != 0 && file[iter_File] != '"')
+			case Token_BeginObject:
+			case Token_EndObject:
+			case Token_BeginArray:
+			case Token_EndArray:
+			case Token_NameSeparator:
+			case Token_ValueSeparator:
+			{
+				start[currentToken] = iter_File;
+				type[currentToken] = file[iter_File];
+				++currentToken;
+				++iter_File;
+			} break;
+
+			case '"':
 			{
 				++iter_File;
-			}
-			assert(file[iter_File] != 0);
-			++iter_File;
-		}
-		else if (file[iter_File] == '-' || (file[iter_File] > 0x2F && file[iter_File] < 0x3A))
-		{
-			start[currentToken] = iter_File;
-			type[currentToken] = Token_Number;
-			++currentToken;
-			if (file[iter_File] == '-')
-			{
-				iter_File++;
-			}
-			while(file[iter_File] != 0 && ((file[iter_File] > 0x2F && file[iter_File] < 0x3A) || file[iter_File] == '.'))
-			{
-				++iter_File;
-			}
-			assert(file[iter_File] != 0);
-		}
-		else if ((file[iter_File] > 0x60 && file[iter_File] < 0x7B) || (file[iter_File] > 0x40 && file[iter_File] < 0x5b))
-		{
-			for (u32 iterLit = 0; iterLit < ArrayCount(literalsStr); ++iterLit)
-			{
-				if (strncmp((char*)(file + iter_File), literalsStr[iterLit], strlen(literalsStr[iterLit]) == 0))
+				start[currentToken] = iter_File;
+				type[currentToken] = Token_String;
+				++currentToken;
+				while(file[iter_File] != 0 && file[iter_File] != '"')
 				{
-					start[currentToken] = iter_File;
-					type[currentToken] = literalsType[iterLit];
-					iter_File += strlen(literalsStr[iterLit]);
-					++currentToken;
-					break;
+					++iter_File;
 				}
-			}
-		}
-		else
-		{
-			switch (file[iter_File])
+				assert(file[iter_File] != 0);
+				++iter_File;
+			} break;
+
+			case '-':
+			case '0':
+			case '1':
+			case '2':
+			case '3':
+			case '4':
+			case '5':
+			case '6':
+			case '7':
+			case '8':
+			case '9':
 			{
-				case Token_BeginObject:
-				case Token_EndObject:
-				case Token_BeginArray:
-				case Token_EndArray:
-				case Token_NameSeparator:
-				case Token_ValueSeparator:
-					start[currentToken] = iter_File;
-					type[currentToken] = file[iter_File];
-					++currentToken;
-					break;
-				default:
-					printf("[%d]=%c\n", iter_File, file[iter_File]);
-					assert(0);
-					break;
-			}
-			++iter_File;
+				start[currentToken] = iter_File;
+				type[currentToken] = Token_Number;
+				++currentToken;
+				if (file[iter_File] == '-')
+				{
+					iter_File++;
+				}
+				while(file[iter_File] != 0 && ((file[iter_File] > 0x2F && file[iter_File] < 0x3A) || file[iter_File] == '.'))
+				{
+					++iter_File;
+				}
+				assert(file[iter_File] != 0);
+			} break;
+
+			case 'f':
+			case 't':
+			case 'n':
+			{
+				for (u32 iterLit = 0; iterLit < ArrayCount(literalsStr); ++iterLit)
+				{
+					if (strncmp((char*)(file + iter_File), literalsStr[iterLit], strlen(literalsStr[iterLit]) == 0))
+					{
+						start[currentToken] = iter_File;
+						type[currentToken] = literalsType[iterLit];
+						iter_File += strlen(literalsStr[iterLit]);
+						++currentToken;
+						break;
+					}
+				}
+			} break;
+
+			default:
+			{
+				printf("[%d]=%c\n", iter_File, file[iter_File]);
+				assert(0);
+			} break;
 		}
 	}
 
