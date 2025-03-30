@@ -1,7 +1,7 @@
 NAME=gaversine
 GENERATOR=generator
 
-CFLAGS=-std=c99 -Wall -Werror -Wextra
+CFLAGS=-std=c99 -Wall -Werror -Wextra -O2
 LFLAGS=-lm
 
 UNAME_S := $(shell uname -s)
