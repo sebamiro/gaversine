@@ -26,16 +26,14 @@ void test_mmap_full(repeater_tester* t, char* file_name, u64 sizeFile)
 			return;
 		}
 		Repeater_BeginTime(t);
-		fread(buf, sizeFile, 1, in);
+		u64 a = fread(buf, sizeFile, 1, in);
+		(void)a;
 		Repeater_EndTime(t);
 		Repeater_CountBytes(t, sizeFile);
 		fclose(in);
 		munmap(buf, sizeFile);
 	}
 }
-
-
-
 
 
 void test_mmap_chunks(repeater_tester* t, char* file_name, u64 sizeChunk, u64 sizeFile)
@@ -54,7 +52,8 @@ void test_mmap_chunks(repeater_tester* t, char* file_name, u64 sizeChunk, u64 si
 		Repeater_BeginTime(t);
 		for (u64 i = 1; i * sizeChunk < sizeFile; i++)
 		{
-			fread(buf, sizeChunk, 1, in);
+			u64 a = fread(buf, sizeChunk, 1, in);
+			(void)a;
 		}
 		Repeater_EndTime(t);
 		Repeater_CountBytes(t, sizeFile);
