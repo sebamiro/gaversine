@@ -89,6 +89,20 @@ void*	Arena_Realloc(arena* arena, void* oldPtr, u64 oldSize, u64 newSize)
 	return newPtr;
 }
 
+void* Arena_ReallocLast(arena* arena, void* oldPtr, u64 oldSize, u64 newSize)
+{
+	if (newSize <= oldSize)
+	{
+		return oldPtr;
+	}
+	if (arena->end->size > arena->end->cur + newSize - oldSize)
+	{
+		arena->end->cur += newSize - oldSize;
+		return oldPtr;
+	}
+	return Arena_Realloc(arena, oldPtr, oldSize, newSize);
+}
+
 arena Arena_Init(u64 len)
 {
 	arena arena;

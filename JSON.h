@@ -1,5 +1,6 @@
 enum json_value_type
 {
+	JSONValue_None,
 	JSONValue_False,
 	JSONValue_Null,
 	JSONValue_True,
@@ -42,8 +43,8 @@ typedef struct json_array
 typedef struct json_object
 {
 	u32					Len;
-	handle_json_value*	Keys;
 	handle_json_value*	Values;
+	handle_json_value*	Keys;
 } json_object;
 
 struct json_value
