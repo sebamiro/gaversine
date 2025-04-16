@@ -17,9 +17,19 @@
 #include "parse.c"
 #include "haversine.c"
 
+static i32 floatEqual(f64 a, f64 b)
+{
+	f64 epsilon = 0.00000001;
+	f64 diff = a - b;
+	i32 res = (diff > -epsilon) && (diff < epsilon);
+	return res;
+}
+
 int main(int argc, char** argv)
 {
 	Prfl_Start;
+
+	printf("%f\n", 7980.6733560675902481 / 0.100);
 
 	argc--;argv++;
 	if (argc < 1)
@@ -91,7 +101,7 @@ int main(int argc, char** argv)
 		f64 haversine = ReferenceHaversine(x0, y0, x1, y1, 6372.8);
 		if (arrCheck)
 		{
-			if (haversine != arrCheck[i])
+			if (!floatEqual(haversine, arrCheck[i]))
 			{
 				fprintf(stdout, "[%d] %.16f != %.16f\n", i, haversine, arrCheck[i]);
 			}
@@ -100,7 +110,7 @@ int main(int argc, char** argv)
 	}
 	if (arrCheck)
 	{
-		if (total != arrCheck[Array.Len])
+		if (!floatEqual(total, arrCheck[Array.Len]))
 		{
 			fprintf(stdout, "TOTAL: %f != %f", total, arrCheck[Array.Len]);
 		}
@@ -117,6 +127,12 @@ int main(int argc, char** argv)
 	free(json.Values);
 	TimeBlock_End(MiscEnd);
 
+	printf("maxSin: %f\n", maxSin);
+	printf("minSin: %f\n", minSin);
+	printf("maxCos: %f\n", maxCos);
+	printf("minCos: %f\n", minCos);
+	printf("minSqrt: %f\n", minSqrt);
+	printf("maxSqrt: %f\n", maxSqrt);
 
 	Prfl_End();
 }
